@@ -9,5 +9,4 @@ public class XAiAgentApplication {
     public static void main(String[] args) {
         SpringApplication.run(XAiAgentApplication.class, args);
     }
-
 }
