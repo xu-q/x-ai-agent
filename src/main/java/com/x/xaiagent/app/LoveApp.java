@@ -1,9 +1,11 @@
 package com.x.xaiagent.app;
 
+import com.x.xaiagent.advisor.MyLoggerAdvisor;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
@@ -26,6 +28,7 @@ public class LoveApp {
 
     /**
      * 初始化AI客户端
+     *
      * @param dashscopeChatModel
      */
 
@@ -37,13 +40,15 @@ public class LoveApp {
         chatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(
-                        MessageChatMemoryAdvisor.builder(chatMemory).build()
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                        new MyLoggerAdvisor()
                 )
                 .build();
     }
 
     /**
      * AI对话 支持多轮对话
+     *
      * @param message
      * @param chatId
      * @return
