@@ -28,11 +28,6 @@ public class FileBasedChatMemory implements ChatMemory {
     }
 
     @Override
-    public void add(String conversationId, Message message) {
-        saveConversation(conversationId, List.of((Message) message));
-    }
-
-    @Override
     public void add(String conversationId, List<Message> messages) {
         List<Message> conversationMessages = getOrCreateConversation(conversationId);
         conversationMessages.addAll(messages);
