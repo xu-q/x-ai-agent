@@ -1,6 +1,7 @@
 package com.x.xaiagent.app;
 
 import com.x.xaiagent.advisor.MyLoggerAdvisor;
+import com.x.xaiagent.chatmemory.FileBasedChatMemory;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -14,6 +15,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Indexed;
+
+import java.util.List;
 
 @Component
 @Slf4j
@@ -34,9 +37,14 @@ public class LoveApp {
 
     public LoveApp(ChatModel dashscopeChatModel) {
         // ✅ 基于内存的 ChatMemory（默认使用 InMemoryChatMemoryRepository）
-        ChatMemory chatMemory = MessageWindowChatMemory.builder()
-                .maxMessages(1)  // 保留最近 10 条消息
-                .build();
+        /*ChatMemory chatMemory = MessageWindowChatMemory.builder()
+                .maxMessages(10)  // 保留最近 10 条消息
+                .build();*/
+
+        //基于文件的 ChatMemory
+        String baseDir = System.getProperty("user.dir") + "/tmp/chat-memory";
+        ChatMemory chatMemory = new FileBasedChatMemory(baseDir);
+
         chatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(
@@ -65,5 +73,30 @@ public class LoveApp {
         log.info("content: {}", content);
         return content;
     }
+
+    record LoveReport(String title, List<String> suggestions) {
+    }
+
+
+    /**
+     * Ai 恋爱报告，结构化输出
+     *
+     * @param message
+     * @param chatId
+     * @return
+     */
+    public LoveReport doChatWithReport(String message, String chatId) {
+        LoveReport loveReport = chatClient
+                .prompt()
+                .system(SYSTEM_PROMPT + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表")
+                .user(message)
+                .advisors(spec -> spec
+                        .param(ChatMemory.CONVERSATION_ID, chatId))
+                .call()
+                .entity(LoveReport.class);
+        log.info("loveReport: {}", loveReport);
+        return loveReport;
+    }
+
 
 }

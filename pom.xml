@@ -87,6 +87,27 @@
             <version>1.15.0-beta25</version>
             <scope>compile</scope>
         </dependency>
+
+        <!-- 支持结构化输出 -->
+        <!-- ===== 新增：修复结构化输出依赖缺失 ===== -->
+        <dependency>
+            <groupId>com.github.victools</groupId>
+            <artifactId>jsonschema-generator</artifactId>
+            <version>4.36.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.victools</groupId>
+            <artifactId>jsonschema-module-jackson</artifactId>
+            <version>4.36.0</version>
+        </dependency>
+
+
+        <!-- 支持文件会话记忆持久化的序列化 -->
+        <dependency>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo</artifactId>
+            <version>5.6.0</version>
+        </dependency>
     </dependencies>
 
     <build>
