@@ -1,20 +1,19 @@
 package com.x.xaiagent.app;
 
 import com.x.xaiagent.advisor.MyLoggerAdvisor;
-import com.x.xaiagent.chatmemory.FileBasedChatMemory;
-import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
-import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Indexed;
 
 import java.util.List;
 
@@ -37,13 +36,13 @@ public class LoveApp {
 
     public LoveApp(ChatModel dashscopeChatModel) {
         // ✅ 基于内存的 ChatMemory（默认使用 InMemoryChatMemoryRepository）
-        /*ChatMemory chatMemory = MessageWindowChatMemory.builder()
+        ChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .maxMessages(10)  // 保留最近 10 条消息
-                .build();*/
+                .build();
 
-        //基于文件的 ChatMemory
+       /* //基于文件的 ChatMemory
         String baseDir = System.getProperty("user.dir") + "/tmp/chat-memory";
-        ChatMemory chatMemory = new FileBasedChatMemory(baseDir);
+        ChatMemory chatMemory = new FileBasedChatMemory(baseDir);*/
 
         chatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(SYSTEM_PROMPT)
@@ -96,6 +95,27 @@ public class LoveApp {
                 .entity(LoveReport.class);
         log.info("loveReport: {}", loveReport);
         return loveReport;
+    }
+
+
+    @Resource
+    private VectorStore loveAppVectorStore;
+
+    public String doChatWithRag(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec
+                        .param(ChatMemory.CONVERSATION_ID, chatId))
+                // 开启日志，便于观察效果
+                .advisors(new MyLoggerAdvisor())
+                // 应用知识库问答
+                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
     }
 
 
