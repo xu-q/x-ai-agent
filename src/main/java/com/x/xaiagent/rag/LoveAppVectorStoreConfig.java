@@ -11,6 +11,9 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
+/**
+ * 基于本地文件知识库
+ */
 @Configuration
 public class LoveAppVectorStoreConfig {
 

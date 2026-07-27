@@ -39,14 +39,14 @@ public class MyLoggerAdvisor implements BaseAdvisor {
                 .map(Message::getText)
                 .findFirst()
                 .orElse(null);
-        log.info("=====systemText: {}", systemText);
+        //log.info("=====systemText: {}", systemText);
 
-        log.info("=====chatOptions: {}", prompt.getOptions());
+        /*log.info("=====chatOptions: {}", prompt.getOptions());
         log.info("=====messages: {}", messages);
-        log.info("=====media: {}", prompt.getUserMessage().getMedia());
+        log.info("=====media: {}", prompt.getUserMessage().getMedia());*/
 
         Map<String, Object> context = request.context();
-        log.info("=====context (advisorParams): {}", context);
+        //log.info("=====context (advisorParams): {}", context);
 
         return request;
     }
@@ -55,7 +55,7 @@ public class MyLoggerAdvisor implements BaseAdvisor {
     public ChatClientResponse after(ChatClientResponse response, AdvisorChain chain) {
         log.info("===== AI Response =====");
         log.info("=====content: {}", response.chatResponse().getResult().getOutput().getText());
-        log.info("=====metadata: {}", response.chatResponse().getResult().getMetadata());
+        //log.info("=====metadata: {}", response.chatResponse().getResult().getMetadata());
         return response;
     }
 }

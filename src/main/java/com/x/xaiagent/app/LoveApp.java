@@ -1,10 +1,12 @@
 package com.x.xaiagent.app;
 
 import com.x.xaiagent.advisor.MyLoggerAdvisor;
+import com.x.xaiagent.rag.LoveAppRagCloudAdvisorConfig;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -99,18 +101,46 @@ public class LoveApp {
     @Resource
     private VectorStore loveAppVectorStore;
 
+    @Resource
+    private Advisor loveAppRagCloudAdvisor;
+
+    /**
+     * 基于本地知识库问答
+     * @param message
+     * @param chatId
+     * @return
+     */
     public String doChatWithRag(String message, String chatId) {
         ChatResponse chatResponse = chatClient
                 .prompt()
                 .user(message)
                 .advisors(spec -> spec
                         .param(ChatMemory.CONVERSATION_ID, chatId))
-                // 应用知识库问答
+                // 应用本地知识库问答
                 .advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
-        log.info("content: {}", content);
+        return content;
+    }
+
+    /**
+     * 基于云服务的知识库 rag 检索增加
+     * @param message
+     * @param chatId
+     * @return
+     */
+    public String doChatWithRagCloud(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec
+                        .param(ChatMemory.CONVERSATION_ID, chatId))
+                // 应用阿里云百炼知识库
+                .advisors(loveAppRagCloudAdvisor)
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
         return content;
     }
 
