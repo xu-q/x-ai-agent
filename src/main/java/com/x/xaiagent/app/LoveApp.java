@@ -4,10 +4,8 @@ import com.x.xaiagent.advisor.MyLoggerAdvisor;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
-import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
@@ -107,10 +105,8 @@ public class LoveApp {
                 .user(message)
                 .advisors(spec -> spec
                         .param(ChatMemory.CONVERSATION_ID, chatId))
-                // 开启日志，便于观察效果
-                .advisors(new MyLoggerAdvisor())
                 // 应用知识库问答
-                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                .advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();

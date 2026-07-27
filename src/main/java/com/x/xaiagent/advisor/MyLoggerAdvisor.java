@@ -1,23 +1,19 @@
 package com.x.xaiagent.advisor;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
-import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
-import reactor.core.publisher.Flux;
+import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.prompt.Prompt;
 
-/**
- * 自定义日志 Advisor
- * 打印 info 级别日志、只输出单次用户提示词和 AI 回复的文本
- *
- * 因为spring内置了simpleLoggerAdvisor日志拦截器，但是都是Debug级别的，而springboot项目日志默认是Info级别的，所以看不到打印的日志。
- */
+import java.util.List;
+import java.util.Map;
+
 @Slf4j
-public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
+public class MyLoggerAdvisor implements BaseAdvisor {
 
     @Override
     public String getName() {
@@ -30,30 +26,36 @@ public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
     }
 
     @Override
-    public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest, CallAdvisorChain callAdvisorChain) {
-        logRequest(chatClientRequest);
+    public ChatClientRequest before(ChatClientRequest request, AdvisorChain chain) {
+        Prompt prompt = request.prompt();
 
-        ChatClientResponse chatClientResponse = callAdvisorChain.nextCall(chatClientRequest);
+        String userText = prompt.getUserMessage().getText();
+        log.info("===== AI Request =====");
+        log.info("=====userText: {}", userText);
 
-        logResponse(chatClientResponse);
+        List<Message> messages = prompt.getInstructions();
+        String systemText = messages.stream()
+                .filter(m -> m instanceof SystemMessage)
+                .map(Message::getText)
+                .findFirst()
+                .orElse(null);
+        log.info("=====systemText: {}", systemText);
 
-        return chatClientResponse;
+        log.info("=====chatOptions: {}", prompt.getOptions());
+        log.info("=====messages: {}", messages);
+        log.info("=====media: {}", prompt.getUserMessage().getMedia());
+
+        Map<String, Object> context = request.context();
+        log.info("=====context (advisorParams): {}", context);
+
+        return request;
     }
 
     @Override
-    public Flux<ChatClientResponse> adviseStream(ChatClientRequest chatClientRequest, StreamAdvisorChain streamAdvisorChain) {
-        logRequest(chatClientRequest);
-
-        Flux<ChatClientResponse> chatClientResponses = streamAdvisorChain.nextStream(chatClientRequest);
-
-        return new ChatClientMessageAggregator().aggregateChatClientResponse(chatClientResponses, this::logResponse);
-    }
-
-    private void logRequest(ChatClientRequest request) {
-        log.info("#####AI Request: {}", request.prompt().getUserMessage().getText());
-    }
-
-    private void logResponse(ChatClientResponse chatClientResponse) {
-        log.info("#####AI Response: {}", chatClientResponse.chatResponse().getResult().getOutput().getText());
+    public ChatClientResponse after(ChatClientResponse response, AdvisorChain chain) {
+        log.info("===== AI Response =====");
+        log.info("=====content: {}", response.chatResponse().getResult().getOutput().getText());
+        log.info("=====metadata: {}", response.chatResponse().getResult().getMetadata());
+        return response;
     }
 }
