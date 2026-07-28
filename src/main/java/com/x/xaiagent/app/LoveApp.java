@@ -101,9 +101,6 @@ public class LoveApp {
     @Resource
     private VectorStore loveAppVectorStore;
 
-    @Resource
-    private Advisor loveAppRagCloudAdvisor;
-
     /**
      * 基于本地知识库问答
      * @param message
@@ -124,6 +121,9 @@ public class LoveApp {
         return content;
     }
 
+
+    @Resource
+    private Advisor loveAppRagCloudAdvisor;
     /**
      * 基于云服务的知识库 rag 检索增加
      * @param message
@@ -145,4 +145,25 @@ public class LoveApp {
     }
 
 
+    @Resource
+    private VectorStore vectorStore;
+
+    /**
+     * 基于Pg数据库 知识库 rag 检索增加
+     * @param message
+     * @param chatId
+     * @return
+     */
+    public String doChatWithRagPg(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec
+                        .param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(QuestionAnswerAdvisor.builder(vectorStore).build())
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        return content;
+    }
 }
