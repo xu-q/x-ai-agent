@@ -3,6 +3,15 @@ spring:
     name: x-ai-agent
   profiles:
     active: local
+  ai:
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        #dimensions: 1536
+        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+
 server:
   port: 8123
   servlet:
@@ -29,4 +38,8 @@ knife4j:
 #logging:
 #  level:
 #    org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor: debug
-
+#
+#logging:
+#  level:
+#    org.springframework.ai.vectorstore.pgvector: DEBUG
+#    org.springframework.boot.autoconfigure: DEBUG
