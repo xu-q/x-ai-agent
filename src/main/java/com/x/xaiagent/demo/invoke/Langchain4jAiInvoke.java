@@ -2,8 +2,6 @@ package com.x.xaiagent.demo.invoke;
 
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 
-import java.util.HashMap;
-
 public class Langchain4jAiInvoke {
 
         public static void main(String[] args) {

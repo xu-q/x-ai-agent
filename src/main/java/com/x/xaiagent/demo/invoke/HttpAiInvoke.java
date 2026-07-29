@@ -1,7 +1,5 @@
 package com.x.xaiagent.demo.invoke;
 
-import cn.hutool.core.lang.TypeReference;
-import cn.hutool.core.map.MapUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONUtil;
