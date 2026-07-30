@@ -2,6 +2,7 @@ package com.x.xaiagent.app;
 
 import com.x.xaiagent.advisor.MyLoggerAdvisor;
 import com.x.xaiagent.rag.LoveAppRagCloudAdvisorConfig;
+import com.x.xaiagent.rag.LoveAppRagCustomAdvisorFactory;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -114,7 +115,9 @@ public class LoveApp {
                 .advisors(spec -> spec
                         .param(ChatMemory.CONVERSATION_ID, chatId))
                 // 应用本地知识库问答
-                .advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
+                //.advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
+                //
+                .advisors(LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(loveAppVectorStore, "已婚"))
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
