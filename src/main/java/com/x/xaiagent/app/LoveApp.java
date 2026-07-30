@@ -115,9 +115,9 @@ public class LoveApp {
                 .advisors(spec -> spec
                         .param(ChatMemory.CONVERSATION_ID, chatId))
                 // 应用本地知识库问答
-                //.advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
-                //
-                .advisors(LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(loveAppVectorStore, "已婚"))
+                .advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
+                //按照条件去匹配，比如问题是已婚类的问题，status是单身，将匹配不到相关内容
+                //.advisors(LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(loveAppVectorStore, "单身"))
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();

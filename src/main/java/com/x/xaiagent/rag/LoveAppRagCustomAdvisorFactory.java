@@ -10,7 +10,7 @@ import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 
 /**
- * 自定义RAG Advisor工厂类（按照条件去匹配，比如问题是已婚类的问题，status是单身，将匹配不到相关内容）
+ * 自定义RAG Advisor工厂类（按照条件去匹配，比如问题是已婚类的问题，status是单身，将匹配不到相关内容，并给出自定义信息）
  */
 @Slf4j
 public class LoveAppRagCustomAdvisorFactory {
@@ -26,6 +26,8 @@ public class LoveAppRagCustomAdvisorFactory {
                 .build();
         return RetrievalAugmentationAdvisor.builder()
                 .documentRetriever(documentRetriever)
+                //匹配不到相关内容时，返回自定义信息
+                .queryAugmenter(LoveAppContextualQueryAugmenterFactory.createInstance())
                 .build();
     }
 }
