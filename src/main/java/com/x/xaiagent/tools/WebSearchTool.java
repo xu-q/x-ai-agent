@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 网页搜索工具类
+ */
 public class WebSearchTool {
     private static final String SEARCH_API_URL = "https://www.searchapi.io/api/v1/search";
     private static final String ENGINE = "baidu";
