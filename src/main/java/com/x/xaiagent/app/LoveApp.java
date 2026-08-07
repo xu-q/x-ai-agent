@@ -13,6 +13,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 
@@ -104,6 +105,7 @@ public class LoveApp {
 
     /**
      * 基于本地知识库问答
+     *
      * @param message
      * @param chatId
      * @return
@@ -127,8 +129,10 @@ public class LoveApp {
 
     @Resource
     private Advisor loveAppRagCloudAdvisor;
+
     /**
      * 基于云服务的知识库 rag 检索增加
+     *
      * @param message
      * @param chatId
      * @return
@@ -153,6 +157,7 @@ public class LoveApp {
 
     /**
      * 基于Pg数据库 知识库 rag 检索增加
+     *
      * @param message
      * @param chatId
      * @return
@@ -164,6 +169,23 @@ public class LoveApp {
                 .advisors(spec -> spec
                         .param(ChatMemory.CONVERSATION_ID, chatId))
                 .advisors(QuestionAnswerAdvisor.builder(vectorStore).build())
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        return content;
+    }
+
+
+    @Resource
+    private ToolCallback[] allTools;
+
+    public String doChatWithTools(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec
+                        .param(ChatMemory.CONVERSATION_ID, chatId))
+                .toolCallbacks(allTools)
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
