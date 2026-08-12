@@ -60,7 +60,7 @@ class LoveAppTest {
         String message = "我已经结婚了，但是婚后关系不太亲密，怎么办？";
 
         String answer =  loveApp.doChatWithRagCloud(message, chatId);
-        Assertions.assertNotNull(answer);
+        Assertions.assertNotNull (answer);
     }
 
     @Test
@@ -99,4 +99,12 @@ class LoveAppTest {
         Assertions.assertNotNull(answer);
     }
 
+    @Test
+    void doChatWithMcp() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "我对象在成都西站，帮我找下附近5公里范围内的约会地点";
+
+        String answer =  loveApp.doChatWithMcp(message, chatId);
+        Assertions.assertNotNull(answer);
+    }
 }

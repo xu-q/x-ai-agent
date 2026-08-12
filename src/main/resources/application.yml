@@ -12,6 +12,16 @@ spring:
         #dimensions: 1536
         max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
 
+    mcp:
+      client:
+        streamable-http:
+          server-connections:
+            amap-maps:
+              base-url: https://dashscope.aliyuncs.com/api/v1/mcps/amap-maps/mcp
+              headers:
+                Authorization: Bearer ${spring.ai.dashscope.api-key}
+
+
 server:
   port: 8123
   servlet:
