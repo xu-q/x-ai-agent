@@ -20,7 +20,8 @@ spring:
               base-url: https://dashscope.aliyuncs.com/api/v1/mcps/amap-maps/mcp
               headers:
                 Authorization: Bearer ${spring.ai.dashscope.api-key}
-
+        stdio:
+          servers-configuration: classpath:mcp-servers.json
 
 server:
   port: 8123

@@ -107,4 +107,13 @@ class LoveAppTest {
         String answer =  loveApp.doChatWithMcp(message, chatId);
         Assertions.assertNotNull(answer);
     }
+
+    @Test
+    void doChatWithMcpImageSearch() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "帮我找张好看的情侣照片";
+
+        String answer =  loveApp.doChatWithMcp(message, chatId);
+        Assertions.assertNotNull(answer);
+    }
 }
