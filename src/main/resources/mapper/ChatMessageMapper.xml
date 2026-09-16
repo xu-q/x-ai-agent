@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.x.xaiagent.mapper.ChatMessageMapper">
+
+    <!-- 消息结果映射（显式列→属性，不依赖驼峰自动转换） -->
+    <resultMap id="ChatMessageResultMap" type="com.x.xaiagent.entity.ChatMessage">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="conversation_id" property="conversationId"/>
+        <result column="role" property="role"/>
+        <result column="content" property="content"/>
+        <result column="create_time" property="createTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 会话列表聚合结果映射 -->
+    <resultMap id="ConversationVOResultMap" type="com.x.xaiagent.entity.ConversationVO">
+        <result column="conversationId" property="conversationId"/>
+        <result column="startTime" property="startTime"/>
+        <result column="lastTime" property="lastTime"/>
+        <result column="messageCount" property="messageCount"/>
+    </resultMap>
+
+    <!-- 按用户聚合会话列表（逻辑删除的消息不计入） -->
+    <select id="listConversations" resultMap="ConversationVOResultMap">
+        SELECT conversation_id    AS conversationId,
+               MIN(create_time)   AS startTime,
+               MAX(create_time)   AS lastTime,
+               COUNT(*)           AS messageCount
+        FROM chat_message
+        WHERE deleted = 0
+          AND user_id = #{userId}
+        GROUP BY conversation_id
+        ORDER BY lastTime DESC
+    </select>
+
+    <!-- 统计某会话消息数（逻辑删除不计入） -->
+    <select id="countByConversation" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM chat_message
+        WHERE deleted = 0
+          AND conversation_id = #{conversationId}
+    </select>
+
+    <!-- 取某会话最新 N 条消息，按时间正序返回（便于还原对话流 / 控制上下文窗口） -->
+    <select id="listLatestMessages" resultMap="ChatMessageResultMap">
+        SELECT *
+        FROM (
+            SELECT *
+            FROM chat_message
+            WHERE deleted = 0
+              AND conversation_id = #{conversationId}
+            ORDER BY create_time DESC
+            LIMIT #{limit}
+        ) t
+        ORDER BY create_time ASC
+    </select>
+
+    <!-- 取某会话最后一条消息（用于列表预览 / 自动标题） -->
+    <select id="selectLastMessage" resultMap="ChatMessageResultMap">
+        SELECT *
+        FROM chat_message
+        WHERE deleted = 0
+          AND conversation_id = #{conversationId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <!-- 在某会话内按关键词搜索消息（逻辑删除不计入） -->
+    <select id="searchMessages" resultMap="ChatMessageResultMap">
+        SELECT *
+        FROM chat_message
+        WHERE deleted = 0
+          AND conversation_id = #{conversationId}
+          AND content LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time ASC
+    </select>
+
+</mapper>

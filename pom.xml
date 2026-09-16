@@ -45,6 +45,12 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- 钉死 mybatis-spring，防止被其它依赖抬高到不兼容版本，导致 factoryBeanObjectType 类型冲突复发 -->
+            <dependency>
+                <groupId>org.mybatis</groupId>
+                <artifactId>mybatis-spring</artifactId>
+                <version>3.0.4</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -169,6 +175,20 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-mcp-client</artifactId>
+        </dependency>
+
+        <!-- PostgreSQL JDBC 驱动（数据源已是 PG，版本由 spring-boot BOM 托管） -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Spring Boot 3 专用 starter（内部 mybatis-spring 3.0.4，修复 factoryBeanObjectType 类型冲突） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.9</version>
         </dependency>
 
     </dependencies>

@@ -25,6 +25,14 @@ public class LoveAppController {
         return loveApp.doChat(message, chatId);
     }
 
+    /**
+     * 基于本地知识库问答（自动落库 用户+助手消息+引用知识片段）
+     */
+    @GetMapping("/doChatRag")
+    public String doChatRag(String message, String chatId) {
+        return loveApp.doChatWithRag(message, chatId);
+    }
+
     @GetMapping(value = "/doChatSSE", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> doChatSSE(String message, String chatId) {
         return loveApp.doChatByStream(message, chatId);
