@@ -5,7 +5,7 @@
       <span class="conv-id">{{ conversationId }}</span>
       <button class="back-btn" @click="router.push('/admin')">← 返回列表</button>
     </header>
-    <main class="detail-main">
+    <main ref="detailMainRef" class="detail-main" @scroll="onScroll">
       <p v-if="loading" class="tip">加载中...</p>
       <p v-else-if="error" class="tip tip-error">{{ error }}</p>
       <p v-else-if="messages.length === 0" class="tip">该会话暂无消息</p>
@@ -26,6 +26,13 @@
         </div>
       </div>
     </main>
+    <transition name="fade">
+      <button v-if="showBackTop" class="back-top" title="回到顶部" @click="scrollTop">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M12 5l-7 7 1.4 1.4L11 8.8V19h2V8.8l4.6 4.6L19 12z" fill="currentColor"/>
+        </svg>
+      </button>
+    </transition>
   </div>
 </template>
 
@@ -42,6 +49,19 @@ const conversationId = route.params.conversationId
 const messages = ref([])
 const loading = ref(false)
 const error = ref('')
+
+// 回到顶部
+const detailMainRef = ref(null)
+const showBackTop = ref(false)
+
+function onScroll() {
+  const el = detailMainRef.value
+  showBackTop.value = !!el && el.scrollTop > 200
+}
+
+function scrollTop() {
+  detailMainRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 function formatTime(value) {
   if (!value) return '-'
@@ -71,6 +91,44 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: #f5f6f7;
+  position: relative;
+}
+
+/* 回到顶部按钮 */
+.back-top {
+  position: absolute;
+  right: 32px;
+  bottom: 40px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #e5e6eb;
+  background: #fff;
+  color: #4e5969;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.back-top:hover {
+  color: #165dff;
+  border-color: #165dff;
+  transform: translateY(-2px);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .detail-header {

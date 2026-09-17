@@ -9,10 +9,16 @@
       </span>
       <span class="chat-title">{{ title }}</span>
       <span class="chat-id">ID: {{ shortChatId }}</span>
-      <button class="theme-btn" :title="theme === 'light' ? '切换到黑夜模式' : '切换到白天模式'" @click="toggleTheme">
+      <button class="theme-btn" :title="nextThemeTitle" @click="toggleTheme">
+        <!-- 白天模式：点击切到黑夜（月亮） -->
         <svg v-if="theme === 'light'" viewBox="0 0 24 24" width="20" height="20">
           <path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 01-4.4 2.26 5.4 5.4 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z" fill="currentColor"/>
         </svg>
+        <!-- 黑夜模式：点击切到恋爱模式（爱心） -->
+        <svg v-else-if="theme === 'dark'" viewBox="0 0 24 24" width="20" height="20">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
+        </svg>
+        <!-- 恋爱模式：点击切回白天（太阳） -->
         <svg v-else viewBox="0 0 24 24" width="20" height="20">
           <circle cx="12" cy="12" r="4" fill="currentColor"/>
           <g stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -118,11 +124,20 @@ const inputRef = ref(null)
 const userResized = ref(false)
 let msgIdCounter = 0
 
-// 聊天背景主题：light（白天）/ dark（黑夜），从 localStorage 读取记忆
-const theme = ref(localStorage.getItem('chat-theme') || 'light')
+// 聊天背景主题：light（白天）/ dark（黑夜）/ love（恋爱，默认），从 localStorage 读取记忆
+const themeOptions = ['light', 'dark', 'love']
+const theme = ref(localStorage.getItem('chat-theme') || 'love')
+if (!themeOptions.includes(theme.value)) theme.value = 'light'
+
+const nextThemeTitle = computed(() => {
+  if (theme.value === 'light') return '切换到黑夜模式'
+  if (theme.value === 'dark') return '切换到恋爱模式'
+  return '切换到白天模式'
+})
 
 function toggleTheme() {
-  theme.value = theme.value === 'light' ? 'dark' : 'light'
+  const idx = themeOptions.indexOf(theme.value)
+  theme.value = themeOptions[(idx + 1) % themeOptions.length]
   localStorage.setItem('chat-theme', theme.value)
 }
 
@@ -285,7 +300,6 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   --hover-bg: #dcdcdc;
   --btn-disabled-bg: #e0e0e0;
   --btn-disabled-text: #888;
-  --dot-bg: rgba(0, 0, 0, 0.04);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -310,7 +324,25 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   --hover-bg: #2e2e2e;
   --btn-disabled-bg: #2a2a2a;
   --btn-disabled-text: #666;
-  --dot-bg: rgba(255, 255, 255, 0.04);
+}
+
+/* ===== 主题变量：恋爱（柔和莫兰迪粉） ===== */
+.chat-room[data-theme='love'] {
+  --bg-page: #faf4f2;
+  --bg-header: #f2e6e7;
+  --bg-input: #f6ecec;
+  --bg-input-box: #fffdfa;
+  --bg-divider: rgba(185, 150, 155, 0.18);
+  --bg-system: rgba(185, 150, 155, 0.12);
+  --bg-chat-id: #fffdfa;
+  --border-color: #e7d7d9;
+  --text-primary: #5c4a4d;
+  --text-secondary: #a89598;
+  --text-time: #b7a8ab;
+  --icon-color: #c49aa2;
+  --hover-bg: #efe1e3;
+  --btn-disabled-bg: #efe1e3;
+  --btn-disabled-text: #b7a8ab;
 }
 
 /* ===== 顶部栏（微信风格） ===== */
@@ -379,8 +411,6 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   overflow-y: auto;
   padding: 16px 12px 20px;
   background: var(--bg-page);
-  background-image: radial-gradient(circle at 1px 1px, var(--dot-bg) 1px, transparent 0);
-  background-size: 20px 20px;
   transition: background 0.3s;
 }
 
@@ -538,6 +568,48 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
 
 .chat-room[data-theme='dark'] .bubble-user::before {
   border-color: transparent transparent transparent #2b5e1e;
+}
+
+/* 恋爱模式：柔和粉色系气泡与头像 */
+.chat-room[data-theme='love'] .bubble-user {
+  background: #f3d5da;
+  color: #5c4449;
+}
+
+.chat-room[data-theme='love'] .bubble-user::before {
+  border-color: transparent transparent transparent #f3d5da;
+}
+
+.chat-room[data-theme='love'] .bubble-ai {
+  background: #fffdfa;
+  color: #5c4a4d;
+  box-shadow: inset 0 0 0 1px #ecdcdf;
+}
+
+.chat-room[data-theme='love'] .bubble-ai::before {
+  border-color: transparent #fffdfa transparent transparent;
+  filter: drop-shadow(-1px 0 0 #ecdcdf);
+}
+
+.chat-room[data-theme='love'] .avatar-user {
+  background: linear-gradient(135deg, #eec3c9, #e3ccde);
+}
+
+.chat-room[data-theme='love'] .input-box:focus {
+  border-color: #d9a3af;
+}
+
+.chat-room[data-theme='love'] .send-btn-active {
+  background: #d98c9b;
+  color: #fff;
+}
+
+.chat-room[data-theme='love'] .send-btn-active:hover {
+  background: #cc7d8d;
+}
+
+.chat-room[data-theme='love'] .theme-btn {
+  color: #c98a97;
 }
 
 /* ===== 打字指示器（三点跳动） ===== */
