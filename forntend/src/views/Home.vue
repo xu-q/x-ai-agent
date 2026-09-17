@@ -40,6 +40,13 @@ const apps = [
     icon: '🤖',
     gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)',
     path: '/agent'
+  },
+  {
+    name: '后台管理',
+    desc: '',
+    icon: '⚙️',
+    gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)',
+    path: '/admin'
   }
 ]
 

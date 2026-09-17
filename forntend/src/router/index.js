@@ -12,6 +12,16 @@ const routes = [
     path: '/agent',
     name: 'agent',
     component: () => import('../views/SuperAgent.vue')
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('../views/Admin.vue')
+  },
+  {
+    path: '/admin/conversation/:conversationId',
+    name: 'conversation-detail',
+    component: () => import('../views/MessageDetail.vue')
   }
 ]
 

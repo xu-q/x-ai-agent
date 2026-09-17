@@ -19,4 +19,18 @@ export const LOVE_SSE_URL = `${BASE_URL}/doChatSSE`
  */
 export const AGENT_SSE_URL = `${BASE_URL}/doChatWithEmitter`
 
+/**
+ * 后台管理 - 会话列表（含每个会话的消息数量）
+ */
+export function listConversations(userId = 0) {
+  return request.get('/chat/conversations', { params: { userId } })
+}
+
+/**
+ * 后台管理 - 指定会话的消息列表
+ */
+export function listMessages(conversationId) {
+  return request.get('/chat/message', { params: { conversationId } })
+}
+
 export default request

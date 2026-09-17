@@ -1,0 +1,192 @@
+<template>
+  <div class="detail">
+    <header class="detail-header">
+      <h1 class="detail-title">消息详情</h1>
+      <span class="conv-id">{{ conversationId }}</span>
+      <button class="back-btn" @click="router.push('/admin')">← 返回列表</button>
+    </header>
+    <main class="detail-main">
+      <p v-if="loading" class="tip">加载中...</p>
+      <p v-else-if="error" class="tip tip-error">{{ error }}</p>
+      <p v-else-if="messages.length === 0" class="tip">该会话暂无消息</p>
+      <div v-else class="msg-list">
+        <div
+          v-for="msg in messages"
+          :key="msg.id"
+          class="msg-item"
+          :class="msg.role === 'user' ? 'msg-user' : 'msg-ai'"
+        >
+          <div class="msg-meta">
+            <span class="msg-role" :class="msg.role === 'user' ? 'role-user' : 'role-ai'">
+              {{ msg.role === 'user' ? '用户' : 'AI' }}
+            </span>
+            <span class="msg-time">{{ formatTime(msg.createTime) }}</span>
+          </div>
+          <div class="msg-content">{{ msg.content }}</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { listMessages } from '../api'
+
+const router = useRouter()
+const route = useRoute()
+
+const conversationId = route.params.conversationId
+
+const messages = ref([])
+const loading = ref(false)
+const error = ref('')
+
+function formatTime(value) {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await listMessages(conversationId)
+    messages.value = res.data || []
+  } catch (e) {
+    error.value = '加载消息失败，请确认后端服务已启动'
+  } finally {
+    loading.value = false
+  }
+})
+</script>
+
+<style scoped>
+.detail {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f5f6f7;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e5e6eb;
+}
+
+.detail-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.conv-id {
+  font-size: 13px;
+  color: #86909c;
+  word-break: break-all;
+}
+
+.back-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  border: 1px solid #e5e6eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  color: #165dff;
+  border-color: #165dff;
+}
+
+.detail-main {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+}
+
+.tip {
+  text-align: center;
+  color: #86909c;
+  padding: 32px 0;
+  font-size: 14px;
+}
+
+.tip-error {
+  color: #f53f3f;
+}
+
+.msg-list {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.msg-item {
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-left: 3px solid transparent;
+}
+
+.msg-user {
+  background: #eaf3ff;
+  border-left-color: #165dff;
+}
+
+.msg-ai {
+  background: #effaf1;
+  border-left-color: #00b42a;
+}
+
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.msg-role {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.role-user {
+  color: #165dff;
+  background: rgba(22, 93, 255, 0.1);
+}
+
+.role-ai {
+  color: #00b42a;
+  background: rgba(0, 180, 42, 0.1);
+}
+
+.msg-time {
+  font-size: 12px;
+  color: #86909c;
+}
+
+.msg-content {
+  font-size: 14px;
+  color: #1f2329;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+</style>
