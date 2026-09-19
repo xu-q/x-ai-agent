@@ -1,5 +1,37 @@
 <template>
   <div class="chat-room" :data-theme="theme">
+    <!-- 登录选择弹层 -->
+    <div v-if="!user" class="auth-mask">
+      <div class="auth-dialog">
+        <div class="auth-heart">♥</div>
+        <h2 class="auth-title">欢迎来到 {{ title }}</h2>
+        <p class="auth-sub">请选择进入方式</p>
+        <template v-if="authMode === 'choose'">
+          <button class="auth-btn auth-btn-main" @click="authMode = 'login'">登录 / 注册</button>
+          <button class="auth-btn auth-btn-ghost" @click="guestLogin">游客登录</button>
+          <button type="button" class="auth-link" @click="$router.push('/')">🏠 回到首页</button>
+        </template>
+        <form v-else class="auth-form" @submit.prevent="submitAuth">
+          <div class="auth-tabs">
+            <button type="button" :class="{ active: authTab === 'login' }" @click="switchAuthTab('login')">登录</button>
+            <button type="button" :class="{ active: authTab === 'register' }" @click="switchAuthTab('register')">注册</button>
+          </div>
+          <input v-model.trim="authName" class="auth-input" placeholder="用户名" />
+          <input v-model="authPwd" class="auth-input" type="password" placeholder="密码（至少 6 位）" />
+          <template v-if="authTab === 'register'">
+            <input v-model.trim="authPhone" class="auth-input" placeholder="手机号（选填）" />
+          </template>
+          <p v-if="authError" class="auth-error">{{ authError }}</p>
+          <p v-if="authSuccess" class="auth-success">{{ authSuccess }}</p>
+          <button type="submit" class="auth-btn auth-btn-main" :disabled="authLoading">
+            {{ authLoading ? '处理中...' : (authTab === 'login' ? '登录' : '注册并登录') }}
+          </button>
+          <button type="button" class="auth-link" @click="authMode = 'choose'">← 返回选择</button>
+          <button type="button" class="auth-link" @click="$router.push('/')">🏠 回到首页</button>
+        </form>
+      </div>
+    </div>
+
     <!-- 顶部栏（微信风格） -->
     <header class="chat-header">
       <span class="back-btn" @click="$router.push('/')">
@@ -8,7 +40,16 @@
         </svg>
       </span>
       <span class="chat-title">{{ title }}</span>
-      <span class="chat-id">ID: {{ shortChatId }}</span>
+      <span v-if="user" class="chat-user" :title="`已登录（${user.role || 'USER'}）`">
+        {{ user.role === 'GUEST' ? '👻' : '👤' }} {{ user.name }}
+        <button class="logout-btn" @click="doLogout">
+          <svg viewBox="0 0 24 24" width="12" height="12">
+            <path d="M15 12H4m4-4l-4 4 4 4m4-11h5a2 2 0 012 2v10a2 2 0 01-2 2h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          退出
+        </button>
+      </span>
+      <span class="chat-id" :title="chatId">会话ID: {{ displayChatId }}</span>
       <button class="theme-btn" :title="nextThemeTitle" @click="toggleTheme">
         <!-- 白天模式：点击切到黑夜（月亮） -->
         <svg v-if="theme === 'light'" viewBox="0 0 24 24" width="20" height="20">
@@ -105,6 +146,10 @@
 
 <script setup>
 import { ref, nextTick, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { userLogin, userRegister, userLogout, saveAuthUser, clearAuth } from '../api/index.js'
+
+const router = useRouter()
 
 const props = defineProps({
   title: { type: String, default: 'AI 聊天' },
@@ -124,6 +169,117 @@ const inputRef = ref(null)
 const userResized = ref(false)
 let msgIdCounter = 0
 
+// 登录身份：null 未登录；{ id, name, role }，存 sessionStorage + 会话 Cookie（刷新不丢、关浏览器清除）
+const user = ref(null)
+try {
+  user.value = JSON.parse(sessionStorage.getItem('chat-user') || 'null')
+} catch {
+  user.value = null
+}
+
+const authMode = ref('choose') // choose | form
+const authTab = ref('login') // login | register
+const authName = ref('')
+const authPwd = ref('')
+const authPhone = ref('')
+const authError = ref('')
+const authSuccess = ref('')
+const authLoading = ref(false)
+
+function switchAuthTab(tab) {
+  authTab.value = tab
+  authError.value = ''
+  authSuccess.value = ''
+}
+
+function saveUser(u, token) {
+  user.value = u
+  saveAuthUser(u, token)
+  // 切换身份时清空之前用户的聊天记录（含系统提示）
+  messages.value = []
+  messages.value.push({
+    id: ++msgIdCounter,
+    role: 'system',
+    content: `${u.name} ${u.role === 'GUEST' ? '以游客身份' : ''}进入了聊天室`,
+    time: Date.now()
+  })
+}
+
+// 游客登录：调用后端注册接口自动注册 GUEST 角色账号，然后登录
+async function guestLogin() {
+  const guestName = `游客${Math.floor(1000 + Math.random() * 9000)}`
+  const guestPwd = String(Math.floor(1000 + Math.random() * 9000))
+  try {
+    await userRegister({ username: guestName, password: guestPwd, role: 'GUEST' })
+  } catch {
+    // 注册失败（如用户名重复）也尝试直接登录，保证能进入
+  }
+  try {
+    const res = await userLogin(guestName, guestPwd)
+    const { user: u, token } = res.data
+    saveUser({ id: u.id, name: u.username, role: u.role || 'GUEST' }, token)
+    // 提示游客账号密码，方便后续用正式账号登录（复制到剪贴板）
+    const tip = `🧾 您的游客账号：${guestName} / ${guestPwd}（关闭浏览器后失效）`
+    messages.value.push({ id: ++msgIdCounter, role: 'system', content: tip, time: Date.now() })
+    try { await navigator.clipboard.writeText(`${guestName} / ${guestPwd}`) } catch {}
+  } catch (err) {
+    authError.value = `游客登录失败：${err.response?.data?.message || err.message}`
+  }
+}
+
+// 真实登录/注册调用
+async function submitAuth() {
+  authError.value = ''
+  authSuccess.value = ''
+  if (!authName.value || !authPwd.value) {
+    authError.value = '请输入用户名和密码'
+    return
+  }
+  if (authPwd.value.length < 6) {
+    authError.value = '密码至少 6 位'
+    return
+  }
+  authLoading.value = true
+  try {
+    if (authTab.value === 'register') {
+      // 1. 先注册
+      await userRegister({
+        username: authName.value,
+        password: authPwd.value,
+        phone: authPhone.value || undefined
+      })
+      authSuccess.value = '注册成功，正在登录...'
+    }
+    // 2. 登录（注册后或直接登录都走这里）
+    const res = await userLogin(authName.value, authPwd.value)
+    const { user: u, token } = res.data
+    saveUser({ id: u.id, name: u.username, role: u.role }, token)
+    // 重置表单
+    authName.value = ''
+    authPwd.value = ''
+    authPhone.value = ''
+    authMode.value = 'choose'
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message || '请求失败'
+    authError.value = authTab.value === 'register' ? `注册失败：${msg}` : `登录失败：${msg}`
+  } finally {
+    authLoading.value = false
+  }
+}
+
+async function doLogout() {
+  try {
+    await userLogout()
+  } catch {
+    // 后端登出失败不影响本地退出
+  }
+  clearAuth()
+  user.value = null
+  messages.value = []
+  authMode.value = 'choose'
+  router.push('/')
+}
+
 // 聊天背景主题：light（白天）/ dark（黑夜）/ love（恋爱，默认），从 localStorage 读取记忆
 const themeOptions = ['light', 'dark', 'love']
 const theme = ref(localStorage.getItem('chat-theme') || 'love')
@@ -141,11 +297,8 @@ function toggleTheme() {
   localStorage.setItem('chat-theme', theme.value)
 }
 
-// 简短显示 chatId 后 6 位
-const shortChatId = computed(() => {
-  const id = props.chatId || ''
-  return id.length > 10 ? id.slice(-6) : id
-})
+// 顶栏展示完整会话 ID（超宽时 CSS 自动省略，悬停可看全）
+const displayChatId = computed(() => props.chatId || '')
 
 onMounted(() => {
   // 进入页面先显示当前会话 ID
@@ -345,6 +498,201 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   --btn-disabled-text: #b7a8ab;
 }
 
+/* ===== 登录选择弹层 ===== */
+.auth-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(60, 40, 45, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.chat-room {
+  position: relative;
+}
+
+.auth-dialog {
+  width: 320px;
+  max-width: 88%;
+  background: var(--bg-input-box, #fffdfa);
+  border: 1px solid var(--border-color, #e7d7d9);
+  border-radius: 16px;
+  padding: 32px 28px 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(90, 60, 65, 0.25);
+}
+
+.auth-heart {
+  font-size: 40px;
+  color: #d98c9b;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.auth-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.auth-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.auth-btn {
+  display: block;
+  width: 100%;
+  padding: 11px 0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-btn-main {
+  border: none;
+  background: #d98c9b;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.auth-btn-main:hover {
+  background: #cc7d8d;
+}
+
+.auth-btn-ghost {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.auth-btn-ghost:hover {
+  border-color: #d9a3af;
+  color: #c98a97;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.auth-tabs button {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-tabs button.active {
+  background: #d98c9b;
+  border-color: #d98c9b;
+  color: #fff;
+}
+
+.auth-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.auth-input:focus {
+  border-color: #d9a3af;
+}
+
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  font-size: 12px;
+  color: #d96d7e;
+  text-align: left;
+}
+
+.auth-success {
+  font-size: 12px;
+  color: #4caf50;
+  text-align: left;
+}
+
+.auth-link {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.auth-link:hover {
+  color: #c98a97;
+}
+
+/* 头部身份标签 */
+.chat-user {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-chat-id);
+  padding: 3px 6px 3px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #d96d7e;
+  background: #fff;
+  color: #d96d7e;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-left: 2px;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  color: #fff;
+  background: #d96d7e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(217, 109, 126, 0.35);
+}
+
 /* ===== 顶部栏（微信风格） ===== */
 .chat-header {
   height: 50px;
@@ -386,6 +734,7 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   padding: 3px 8px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 .theme-btn {
