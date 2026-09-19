@@ -60,18 +60,69 @@
           </table>
         </template>
 
-        <!-- 用户管理（占位） -->
+        <!-- 用户管理 -->
         <template v-else>
-          <p class="tip">用户管理功能建设中...</p>
-          <div class="plan-box">
-            <p class="plan-title">规划功能：</p>
-            <ul class="plan-list">
-              <li>用户列表（用户 ID、账号信息、创建时间等）</li>
-              <li>搜索用户（按昵称、ID 等条件筛选）</li>
-              <li>删除 / 禁用用户</li>
-              <li>查看用户会话（跳转该用户的会话与消息记录）</li>
-            </ul>
+          <div v-if="!isAdmin" class="tip">
+            用户管理仅限管理员访问，请先在聊天室使用管理员账号登录
           </div>
+          <template v-else>
+            <div class="toolbar">
+              <input
+                v-model.trim="userSearch"
+                class="search-input search-green"
+                type="text"
+                placeholder="按用户名 / ID / 手机号搜索"
+              />
+              <button class="refresh-btn" @click="loadUsers">刷新</button>
+            </div>
+            <p v-if="usersLoading" class="tip">加载中...</p>
+            <p v-else-if="usersError" class="tip tip-error">{{ usersError }}</p>
+            <p v-else-if="users.length === 0" class="tip">暂无用户数据</p>
+            <template v-else>
+              <p v-if="actionError" class="action-error">{{ actionError }}</p>
+              <p v-else-if="filteredUsers.length === 0" class="tip">未找到匹配的用户</p>
+              <table v-else class="conv-table user-table">
+                <thead>
+                  <tr>
+                    <th>用户 ID</th>
+                    <th>用户名</th>
+                    <th>手机号</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th class="sortable" @click="toggleUserSort('createTime')">
+                      创建时间
+                      <span class="sort-arrow">{{ userSortArrow('createTime') }}</span>
+                    </th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="u in filteredUsers" :key="u.id">
+                    <td class="uid">{{ u.id }}</td>
+                    <td>{{ u.username }}</td>
+                    <td>{{ u.phone || '-' }}</td>
+                    <td>
+                      <span class="role-badge" :class="`role-${(u.role || 'USER').toLowerCase()}`">
+                        {{ u.role || 'USER' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="status-badge" :class="u.status === 1 ? 'status-on' : 'status-off'">
+                        {{ u.status === 1 ? '正常' : '已禁用' }}
+                      </span>
+                    </td>
+                    <td>{{ formatTime(u.createTime) }}</td>
+                    <td class="ops">
+                      <button class="op-btn" :disabled="actionBusy[u.id]" @click="toggleStatus(u)">
+                        {{ u.status === 1 ? '禁用' : '启用' }}
+                      </button>
+                      <button class="op-btn op-danger" :disabled="actionBusy[u.id]" @click="deleteUser(u)">删除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </template>
+          </template>
         </template>
       </section>
     </main>
@@ -79,9 +130,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { listConversations } from '../api'
+import { listConversations, listUsers, updateUser, removeUser } from '../api'
 
 const router = useRouter()
 
@@ -148,6 +199,126 @@ function formatTime(value) {
 function goDetail(conversationId) {
   router.push(`/admin/conversation/${conversationId}`)
 }
+
+// ===== 用户管理 =====
+// 当前登录身份（聊天室登录后写入 sessionStorage）
+const currentUser = (() => {
+  try {
+    return JSON.parse(sessionStorage.getItem('chat-user') || 'null')
+  } catch {
+    return null
+  }
+})()
+const isAdmin = computed(() => currentUser?.role === 'ADMIN')
+
+const users = ref([])
+const usersLoading = ref(false)
+const usersError = ref('')
+const actionError = ref('')
+const userSearch = ref('')
+const userSortField = ref('')
+const userSortOrder = ref(1)
+const usersLoaded = ref(false)
+const actionBusy = ref({})
+
+const filteredUsers = computed(() => {
+  let list = users.value
+  const kw = userSearch.value.toLowerCase()
+  if (kw) {
+    list = list.filter(
+      (u) =>
+        (u.username || '').toLowerCase().includes(kw) ||
+        (u.id || '').toLowerCase().includes(kw) ||
+        (u.phone || '').includes(kw)
+    )
+  }
+  if (userSortField.value) {
+    const field = userSortField.value
+    const order = userSortOrder.value
+    list = [...list].sort((a, b) => {
+      const av = new Date(a[field]).getTime() || 0
+      const bv = new Date(b[field]).getTime() || 0
+      return (av - bv) * order
+    })
+  }
+  return list
+})
+
+function toggleUserSort(field) {
+  if (userSortField.value === field) {
+    if (userSortOrder.value === 1) {
+      userSortOrder.value = -1
+    } else {
+      userSortField.value = ''
+      userSortOrder.value = 1
+    }
+  } else {
+    userSortField.value = field
+    userSortOrder.value = 1
+  }
+}
+
+function userSortArrow(field) {
+  if (userSortField.value !== field) return '↕'
+  return userSortOrder.value === 1 ? '↑' : '↓'
+}
+
+async function loadUsers() {
+  usersLoading.value = true
+  usersError.value = ''
+  actionError.value = ''
+  try {
+    const res = await listUsers()
+    users.value = res.data || []
+    usersLoaded.value = true
+  } catch (e) {
+    usersError.value =
+      e.response?.status === 403
+        ? '无权限访问：需要管理员身份'
+        : '加载用户列表失败，请确认后端服务已启动'
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+async function toggleStatus(u) {
+  actionBusy.value = { ...actionBusy.value, [u.id]: true }
+  actionError.value = ''
+  try {
+    await updateUser(u.id, {
+      username: u.username,
+      phone: u.phone,
+      role: u.role,
+      status: u.status === 1 ? 0 : 1
+    })
+    await loadUsers()
+  } catch (e) {
+    actionError.value = `更新用户状态失败：${e.response?.data?.message || e.message}`
+  } finally {
+    actionBusy.value = { ...actionBusy.value, [u.id]: false }
+  }
+}
+
+async function deleteUser(u) {
+  if (!window.confirm(`确定删除用户「${u.username}」吗？该操作不可恢复。`)) return
+  actionBusy.value = { ...actionBusy.value, [u.id]: true }
+  actionError.value = ''
+  try {
+    await removeUser(u.id)
+    await loadUsers()
+  } catch (e) {
+    actionError.value = `删除用户失败：${e.response?.data?.message || e.message}`
+  } finally {
+    actionBusy.value = { ...actionBusy.value, [u.id]: false }
+  }
+}
+
+// 首次切到用户管理且为管理员时再加载
+watch(activeTab, (tab) => {
+  if (tab === 'users' && isAdmin.value && !usersLoaded.value) {
+    loadUsers()
+  }
+})
 
 onMounted(async () => {
   loading.value = true
@@ -276,28 +447,6 @@ onMounted(async () => {
   border-bottom-color: #00b42a;
 }
 
-.plan-box {
-  max-width: 480px;
-  margin: 0 auto 32px;
-  background: #f7f8fa;
-  border-radius: 8px;
-  padding: 16px 20px;
-}
-
-.plan-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4e5969;
-  margin-bottom: 8px;
-}
-
-.plan-list {
-  padding-left: 20px;
-  font-size: 13px;
-  color: #86909c;
-  line-height: 2;
-}
-
 .tip {
   text-align: center;
   color: #86909c;
@@ -379,5 +528,114 @@ onMounted(async () => {
 
 .conv-link:hover {
   text-decoration: underline;
+}
+
+/* ===== 用户管理 ===== */
+.search-green:focus {
+  border-color: #00b42a;
+  box-shadow: 0 0 0 2px rgba(0, 180, 42, 0.12);
+}
+
+.refresh-btn {
+  margin-left: 12px;
+  padding: 8px 14px;
+  border: 1px solid #00b42a;
+  border-radius: 6px;
+  background: #fff;
+  color: #00b42a;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #00b42a;
+  color: #fff;
+}
+
+.uid {
+  font-size: 12px;
+  color: #86909c;
+  word-break: break-all;
+  max-width: 280px;
+}
+
+.role-badge,
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.role-admin {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.role-user {
+  background: #e8f3ff;
+  color: #165dff;
+}
+
+.role-guest {
+  background: #f2f3f5;
+  color: #86909c;
+}
+
+.status-on {
+  background: #e8ffea;
+  color: #00b42a;
+}
+
+.status-off {
+  background: #f7f8fa;
+  color: #86909c;
+}
+
+.ops {
+  white-space: nowrap;
+}
+
+.op-btn {
+  margin-right: 8px;
+  padding: 4px 12px;
+  border: 1px solid #00b42a;
+  border-radius: 6px;
+  background: #fff;
+  color: #00b42a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.op-btn:hover:not(:disabled) {
+  background: #00b42a;
+  color: #fff;
+}
+
+.op-danger {
+  border-color: #f53f3f;
+  color: #f53f3f;
+}
+
+.op-danger:hover:not(:disabled) {
+  background: #f53f3f;
+  color: #fff;
+}
+
+.op-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-error {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #ffece8;
+  border-radius: 6px;
+  color: #f53f3f;
+  font-size: 14px;
 }
 </style>

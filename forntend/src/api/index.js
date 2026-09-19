@@ -118,4 +118,25 @@ export function listMessages(conversationId) {
   return request.get('/chat/message', { params: { conversationId } })
 }
 
+/**
+ * 后台管理 - 用户列表（需管理员身份）
+ */
+export function listUsers() {
+  return request.get('/user/list')
+}
+
+/**
+ * 后台管理 - 更新用户（需管理员身份），data 传 UserRegisterDTO 字段
+ */
+export function updateUser(id, data) {
+  return request.put(`/user/${id}`, data)
+}
+
+/**
+ * 后台管理 - 删除用户（需管理员身份）
+ */
+export function removeUser(id) {
+  return request.delete(`/user/${id}`)
+}
+
 export default request
