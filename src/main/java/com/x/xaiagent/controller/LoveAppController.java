@@ -1,6 +1,7 @@
 package com.x.xaiagent.controller;
 
 import com.x.xaiagent.app.LoveApp;
+import com.x.xaiagent.comment.R;
 import jakarta.annotation.Resource;
 import jakarta.websocket.Session;
 import org.apache.catalina.SessionIdGenerator;
@@ -21,16 +22,16 @@ public class LoveAppController {
     private LoveApp loveApp;
 
     @GetMapping("/doChatSync")
-    public String doChatSync(String message, String chatId) {
-        return loveApp.doChat(message, chatId);
+    public R<String> doChatSync(String message, String chatId) {
+        return R.ok(loveApp.doChat(message, chatId));
     }
 
     /**
      * 基于本地知识库问答（自动落库 用户+助手消息+引用知识片段）
      */
     @GetMapping("/doChatRag")
-    public String doChatRag(String message, String chatId) {
-        return loveApp.doChatWithRag(message, chatId);
+    public R<String> doChatRag(String message, String chatId) {
+        return R.ok(loveApp.doChatWithRag(message, chatId));
     }
 
     @GetMapping(value = "/doChatSSE", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

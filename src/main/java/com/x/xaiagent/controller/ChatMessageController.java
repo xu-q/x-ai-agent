@@ -1,5 +1,6 @@
 package com.x.xaiagent.controller;
 
+import com.x.xaiagent.comment.R;
 import com.x.xaiagent.entity.ChatMessage;
 import com.x.xaiagent.entity.ChatMessageCitation;
 import com.x.xaiagent.entity.ConversationVO;
@@ -30,67 +31,67 @@ public class ChatMessageController {
      * 保存一条消息；不传 conversationId 时自动开新会话并返回
      */
     @PostMapping("/message")
-    public ChatMessage saveMessage(@RequestBody ChatMessage message) {
-        return chatMessageService.saveMessage(message);
+    public R<ChatMessage> saveMessage(@RequestBody ChatMessage message) {
+        return R.ok(chatMessageService.saveMessage(message));
     }
 
     /**
      * 按会话拉取消息流
      */
     @GetMapping("/message")
-    public List<ChatMessage> listMessages(@RequestParam String conversationId) {
-        return chatMessageService.listByConversation(conversationId);
+    public R<List<ChatMessage>> listMessages(@RequestParam String conversationId) {
+        return R.ok(chatMessageService.listByConversation(conversationId));
     }
 
     /**
      * 查询会话列表
      */
     @GetMapping("/conversations")
-    public List<ConversationVO> listConversations(@RequestParam(defaultValue = "0") Long userId) {
-        return chatMessageService.listConversations(userId);
+    public R<List<ConversationVO>> listConversations(@RequestParam(defaultValue = "0") Long userId) {
+        return R.ok(chatMessageService.listConversations(userId));
     }
 
     /**
      * 统计某会话消息数
      */
     @GetMapping("/message/count")
-    public long countMessages(@RequestParam String conversationId) {
-        return chatMessageService.countByConversation(conversationId);
+    public R<Long> countMessages(@RequestParam String conversationId) {
+        return R.ok(chatMessageService.countByConversation(conversationId));
     }
 
     /**
      * 取某会话最新 N 条消息
      */
     @GetMapping("/message/latest")
-    public List<ChatMessage> latestMessages(@RequestParam String conversationId,
+    public R<List<ChatMessage>> latestMessages(@RequestParam String conversationId,
                                              @RequestParam(defaultValue = "20") int limit) {
-        return chatMessageService.listLatestMessages(conversationId, limit);
+        return R.ok(chatMessageService.listLatestMessages(conversationId, limit));
     }
 
     /**
      * 在某会话内按关键词搜索消息
      */
     @GetMapping("/message/search")
-    public List<ChatMessage> searchMessages(@RequestParam String conversationId,
+    public R<List<ChatMessage>> searchMessages(@RequestParam String conversationId,
                                              @RequestParam String keyword) {
-        return chatMessageService.searchMessages(conversationId, keyword);
+        return R.ok(chatMessageService.searchMessages(conversationId, keyword));
     }
 
     /**
      * 查询某条助手消息引用的知识片段（RAG 引用）
      */
     @GetMapping("/message/citations")
-    public List<ChatMessageCitation> listCitations(@RequestParam Long messageId) {
-        return chatMessageCitationService.lambdaQuery()
+    public R<List<ChatMessageCitation>> listCitations(@RequestParam Long messageId) {
+        return R.ok(chatMessageCitationService.lambdaQuery()
                 .eq(ChatMessageCitation::getMessageId, messageId)
-                .list();
+                .list());
     }
 
     /**
      * 删除整个会话（逻辑删除）
      */
     @DeleteMapping("/message")
-    public boolean removeConversation(@RequestParam String conversationId) {
-        return chatMessageService.removeConversation(conversationId);
+    public R<Boolean> removeConversation(@RequestParam String conversationId) {
+        return R.ok(chatMessageService.removeConversation(conversationId));
     }
 }

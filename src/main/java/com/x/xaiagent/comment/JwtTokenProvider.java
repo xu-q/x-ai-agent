@@ -1,4 +1,4 @@
-package com.x.xaiagent.component;
+package com.x.xaiagent.comment;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

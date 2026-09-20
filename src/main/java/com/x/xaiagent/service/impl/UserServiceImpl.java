@@ -2,7 +2,7 @@ package com.x.xaiagent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.x.xaiagent.component.JwtTokenProvider;
+import com.x.xaiagent.comment.JwtTokenProvider;
 import com.x.xaiagent.constant.RoleConstants;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;

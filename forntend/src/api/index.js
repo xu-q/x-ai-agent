@@ -59,9 +59,17 @@ request.interceptors.request.use(config => {
   return config
 })
 
-// 响应拦截器：统一错误处理
+// 响应拦截器：统一解包 R<T> 响应体
 request.interceptors.response.use(
-  res => res,
+  res => {
+    const body = res.data
+    // 统一响应体 { code, message, data }：非 200 直接 reject
+    if (body && typeof body === 'object' && 'code' in body && body.code !== 200) {
+      return Promise.reject(new Error(body.message || '请求失败'))
+    }
+    // 返回 R 对象本身，调用处以 res.data 取业务数据（与原本 res.data 语义一致）
+    return body
+  },
   err => {
     // 401 未授权：清除本地身份
     if (err.response?.status === 401) {

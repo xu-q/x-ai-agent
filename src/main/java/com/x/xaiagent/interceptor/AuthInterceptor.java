@@ -1,6 +1,6 @@
 package com.x.xaiagent.interceptor;
 
-import com.x.xaiagent.component.JwtTokenProvider;
+import com.x.xaiagent.comment.JwtTokenProvider;
 import com.x.xaiagent.context.UserContext;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
