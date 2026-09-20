@@ -9,6 +9,7 @@ import com.x.xaiagent.entity.User;
 import com.x.xaiagent.mapper.UserMapper;
 import com.x.xaiagent.service.UserService;
 import com.x.xaiagent.vo.UserVO;
+import jakarta.servlet.http.HttpServletRequest;
 import org.mindrot.jbcrypt.BCrypt;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -155,5 +156,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional(rollbackFor = Exception.class)
     public boolean removeUser(String id) {
         return removeById(id);
+    }
+
+    @Override
+    public UserVO getCurrentUser(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        UserVO user = null;
+        if (header != null && header.startsWith("Bearer ")) {
+            String token = header.substring(7).trim();
+            return user = getUser(jwtTokenProvider.parseToken(token).getSubject());
+
+        }
+        return user;
     }
 }

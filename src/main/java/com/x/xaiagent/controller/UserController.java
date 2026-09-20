@@ -7,6 +7,8 @@ import com.x.xaiagent.interceptor.RequireRole;
 import com.x.xaiagent.service.UserService;
 import com.x.xaiagent.vo.UserVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -80,5 +82,13 @@ public class UserController {
     @RequireRole(RoleConstants.ADMIN)
     public boolean removeUser(@PathVariable String id) {
         return userService.removeUser(id);
+    }
+
+    /**
+     * 获取当前登录用户信息
+     */
+    @GetMapping("/info")
+    public UserVO getCurrentUser(HttpServletRequest request) {
+        return userService.getCurrentUser(request);
     }
 }

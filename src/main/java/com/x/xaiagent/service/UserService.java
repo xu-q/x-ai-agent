@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;
 import com.x.xaiagent.vo.UserVO;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -33,4 +34,6 @@ public interface UserService extends IService<User> {
 
     /** 逻辑删除用户 */
     boolean removeUser(String id);
+
+    UserVO getCurrentUser(HttpServletRequest request);
 }
