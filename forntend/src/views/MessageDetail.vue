@@ -40,6 +40,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { listMessages } from '../api'
+import { formatTime } from '../utils/formatTime'
 
 const router = useRouter()
 const route = useRoute()
@@ -63,21 +64,13 @@ function scrollTop() {
   detailMainRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function formatTime(value) {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
 onMounted(async () => {
   loading.value = true
   error.value = ''
   try {
     const res = await listMessages(conversationId)
     messages.value = res.data || []
-  } catch (e) {
+  } catch {
     error.value = '加载消息失败，请确认后端服务已启动'
   } finally {
     loading.value = false

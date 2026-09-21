@@ -305,11 +305,14 @@ function handleSend() {
   emit('send', text)
 }
 
+// 取最后一条 AI 消息（流式更新都作用于它）
+const getLastAi = () => [...messages.value].reverse().find((m) => m.role === 'ai')
+
 /**
  * 追加 AI 回复内容
  */
 function appendAiChunk(chunk) {
-  const lastAi = [...messages.value].reverse().find((m) => m.role === 'ai')
+  const lastAi = getLastAi()
   if (lastAi) {
     lastAi.content += chunk
     scrollToBottom()
@@ -320,7 +323,7 @@ function appendAiChunk(chunk) {
  * 标记 AI 消息完成
  */
 function finishAiMessage() {
-  const lastAi = [...messages.value].reverse().find((m) => m.role === 'ai')
+  const lastAi = getLastAi()
   if (lastAi) {
     lastAi.loading = false
   }
@@ -332,7 +335,7 @@ function finishAiMessage() {
  * 错误展示
  */
 function showAiError(errMsg) {
-  const lastAi = [...messages.value].reverse().find((m) => m.role === 'ai')
+  const lastAi = getLastAi()
   if (lastAi) {
     lastAi.content = lastAi.content || `发生错误：${errMsg}`
     lastAi.loading = false
@@ -361,6 +364,7 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   --hover-bg: #dcdcdc;
   --btn-disabled-bg: #e0e0e0;
   --btn-disabled-text: #888;
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -404,10 +408,6 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
   --hover-bg: #efe1e3;
   --btn-disabled-bg: #efe1e3;
   --btn-disabled-text: #b7a8ab;
-}
-
-.chat-room {
-  position: relative;
 }
 
 /* 头部身份标签 */

@@ -36,13 +36,13 @@
             <thead>
               <tr>
                 <th>会话 ID</th>
-                <th class="sortable" @click="toggleSort('startTime')">
+                <th class="sortable" @click="convSort.toggle('startTime')">
                   创建时间
-                  <span class="sort-arrow">{{ sortArrow('startTime') }}</span>
+                  <span class="sort-arrow">{{ convSort.arrow('startTime') }}</span>
                 </th>
-                <th class="sortable" @click="toggleSort('messageCount')">
+                <th class="sortable" @click="convSort.toggle('messageCount')">
                   消息数量
-                  <span class="sort-arrow">{{ sortArrow('messageCount') }}</span>
+                  <span class="sort-arrow">{{ convSort.arrow('messageCount') }}</span>
                 </th>
               </tr>
             </thead>
@@ -89,9 +89,9 @@
                     <th>手机号</th>
                     <th>角色</th>
                     <th>状态</th>
-                    <th class="sortable" @click="toggleUserSort('createTime')">
+                    <th class="sortable" @click="userSort.toggle('createTime')">
                       创建时间
-                      <span class="sort-arrow">{{ userSortArrow('createTime') }}</span>
+                      <span class="sort-arrow">{{ userSort.arrow('createTime') }}</span>
                     </th>
                     <th>操作</th>
                   </tr>
@@ -138,6 +138,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { listConversations, listUsers, updateUser, removeUser } from '../api'
+import { formatTime } from '../utils/formatTime'
 
 const router = useRouter()
 
@@ -151,10 +152,44 @@ const conversations = ref([])
 const loading = ref(false)
 const error = ref('')
 
-// 搜索与排序状态
+// 搜索状态
 const searchText = ref('')
-const sortField = ref('') // '' | 'startTime' | 'messageCount'
-const sortOrder = ref(1) // 1 升序，-1 降序
+
+// 通用三态排序：升序 -> 降序 -> 取消
+function createSortState() {
+  const field = ref('')
+  const order = ref(1)
+  return {
+    field,
+    order,
+    toggle(f) {
+      if (field.value !== f) {
+        field.value = f
+        order.value = 1
+      } else if (order.value === 1) {
+        order.value = -1
+      } else {
+        field.value = ''
+        order.value = 1
+      }
+    },
+    arrow(f) {
+      if (field.value !== f) return '↕'
+      return order.value === 1 ? '↑' : '↓'
+    }
+  }
+}
+
+// 按日期字段 + 方向排序
+function sortByDate(list, field, order) {
+  return [...list].sort((a, b) => {
+    const av = new Date(a[field]).getTime() || 0
+    const bv = new Date(b[field]).getTime() || 0
+    return (av - bv) * order
+  })
+}
+
+const convSort = createSortState()
 
 const filteredConversations = computed(() => {
   let list = conversations.value
@@ -162,44 +197,11 @@ const filteredConversations = computed(() => {
   if (kw) {
     list = list.filter((c) => c.conversationId.toLowerCase().includes(kw))
   }
-  if (sortField.value) {
-    const field = sortField.value
-    const order = sortOrder.value
-    list = [...list].sort((a, b) => {
-      const av = new Date(a[field]).getTime() || 0
-      const bv = new Date(b[field]).getTime() || 0
-      return (av - bv) * order
-    })
+  if (convSort.field.value) {
+    list = sortByDate(list, convSort.field.value, convSort.order.value)
   }
   return list
 })
-
-function toggleSort(field) {
-  if (sortField.value === field) {
-    if (sortOrder.value === 1) {
-      sortOrder.value = -1 // 升序 -> 降序
-    } else {
-      sortField.value = '' // 降序 -> 取消排序
-      sortOrder.value = 1
-    }
-  } else {
-    sortField.value = field
-    sortOrder.value = 1
-  }
-}
-
-function sortArrow(field) {
-  if (sortField.value !== field) return '↕'
-  return sortOrder.value === 1 ? '↑' : '↓'
-}
-
-function formatTime(value) {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
 
 function goDetail(conversationId) {
   router.push(`/admin/conversation/${conversationId}`)
@@ -221,8 +223,7 @@ const usersLoading = ref(false)
 const usersError = ref('')
 const actionError = ref('')
 const userSearch = ref('')
-const userSortField = ref('')
-const userSortOrder = ref(1)
+const userSort = createSortState()
 const usersLoaded = ref(false)
 const actionBusy = ref({})
 
@@ -237,36 +238,11 @@ const filteredUsers = computed(() => {
         (u.phone || '').includes(kw)
     )
   }
-  if (userSortField.value) {
-    const field = userSortField.value
-    const order = userSortOrder.value
-    list = [...list].sort((a, b) => {
-      const av = new Date(a[field]).getTime() || 0
-      const bv = new Date(b[field]).getTime() || 0
-      return (av - bv) * order
-    })
+  if (userSort.field.value) {
+    list = sortByDate(list, userSort.field.value, userSort.order.value)
   }
   return list
 })
-
-function toggleUserSort(field) {
-  if (userSortField.value === field) {
-    if (userSortOrder.value === 1) {
-      userSortOrder.value = -1
-    } else {
-      userSortField.value = ''
-      userSortOrder.value = 1
-    }
-  } else {
-    userSortField.value = field
-    userSortOrder.value = 1
-  }
-}
-
-function userSortArrow(field) {
-  if (userSortField.value !== field) return '↕'
-  return userSortOrder.value === 1 ? '↑' : '↓'
-}
 
 async function loadUsers() {
   usersLoading.value = true
@@ -331,7 +307,7 @@ onMounted(async () => {
   try {
     const res = await listConversations()
     conversations.value = res.data || []
-  } catch (e) {
+  } catch {
     error.value = '加载会话列表失败，请确认后端服务已启动'
   } finally {
     loading.value = false

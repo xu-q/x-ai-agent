@@ -85,6 +85,13 @@ request.interceptors.response.use(
 export const LOVE_SSE_URL = `${BASE_URL}/doChatSSE`
 
 /**
+ * 生成会话 ID：32 位无横线 UUID
+ */
+export function generateChatId() {
+  return crypto.randomUUID().replaceAll('-', '')
+}
+
+/**
  * AI 超级智能体 SSE 接口地址（GET，返回 SseEmitter）
  */
 export const AGENT_SSE_URL = `${BASE_URL}/doChatWithEmitter`

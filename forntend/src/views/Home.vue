@@ -35,7 +35,7 @@
       @close="showAuth = false"
     />
 
-    <!-- 鼠标跟随光晕 -->
+    <!-- 鼠标星尘拖尾 -->
     <span
       v-for="dot in trail"
       :key="dot.id"
@@ -57,8 +57,6 @@
       }"
     ></div>
     <div class="home-bg">
-      <!-- <h1 class="home-title">AI 智能应用</h1>
-      <p class="home-subtitle">选择一个应用开始对话</p> -->
       <div class="app-cards">
         <div
           v-for="app in apps"
@@ -104,7 +102,7 @@ function onAuth({ user: u }) {
 async function doLogout() {
   try {
     await userLogout()
-  } catch (e) { /* 后端失败也照常清理本地 */ }
+  } catch { /* 后端失败也照常清理本地 */ }
   clearAuth()
   user.value = null
 }
@@ -183,15 +181,7 @@ const apps = [
     icon: '❤',
     gradient: 'linear-gradient(135deg, #ff6b6b, #ee5a6f)',
     path: '/love'
-  },
-  /* {
-    name: 'AI 超级智能体',
-    desc: '全能智能助手，自主调用工具完成任务',
-    icon: '🤖',
-    gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)',
-    path: '/agent'
-  }, */
-  /* 后台管理入口已移至右上角，仅 ADMIN 角色可见 */
+  }
 ]
 
 function goTo(path) {
@@ -413,18 +403,6 @@ function goTo(path) {
   width: 100%;
   max-width: 900px;
   padding: 40px 20px;
-}
-
-.home-title {
-  font-size: 42px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-
-.home-subtitle {
-  font-size: 18px;
-  opacity: 0.85;
-  margin-bottom: 48px;
 }
 
 .app-cards {

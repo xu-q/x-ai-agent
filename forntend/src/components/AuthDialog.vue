@@ -178,6 +178,7 @@ async function submitAuth() {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--ad-mask);
   backdrop-filter: blur(6px);
 }
 
@@ -210,10 +211,6 @@ async function submitAuth() {
   --ad-shadow: rgba(30, 20, 60, 0.35);
 }
 
-.auth-mask {
-  background: var(--ad-mask);
-}
-
 .auth-dialog {
   position: relative;
   width: 420px;
@@ -226,27 +223,8 @@ async function submitAuth() {
   box-shadow: 0 24px 60px var(--ad-shadow);
 }
 
-.auth-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ad-text2);
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.auth-close:hover {
-  background: var(--ad-soft);
-  color: var(--ad-text);
-  transform: rotate(90deg);
-}
-
+/* 右上角图标按钮（关闭 / 回到首页） */
+.auth-close,
 .auth-home-btn {
   position: absolute;
   top: 14px;
@@ -264,6 +242,11 @@ async function submitAuth() {
   transition: all 0.2s;
 }
 
+.auth-close {
+  font-size: 15px;
+}
+
+.auth-close:hover,
 .auth-home-btn:hover {
   background: var(--ad-soft);
   color: var(--ad-text);
