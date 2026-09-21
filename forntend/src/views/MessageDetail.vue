@@ -197,28 +197,49 @@ onMounted(async () => {
 }
 
 .msg-list {
-  max-width: 800px;
+  position: relative;
+  max-width: 1100px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+}
+
+/* 时间线主轴 */
+.msg-list::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 1px;
+  background: #e5e6eb;
 }
 
 .msg-item {
-  border-radius: 8px;
-  padding: 12px 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  border-left: 3px solid transparent;
+  position: relative;
+  padding-left: 32px;
 }
 
-.msg-user {
-  background: #eaf3ff;
-  border-left-color: #165dff;
+/* 时间线节点 */
+.msg-item::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 3px solid #165dff;
+  box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.12);
 }
 
-.msg-ai {
-  background: #effaf1;
-  border-left-color: #00b42a;
+.msg-ai::before {
+  border-color: #00b42a;
+  box-shadow: 0 0 0 3px rgba(0, 180, 42, 0.12);
 }
 
 .msg-meta {
@@ -250,10 +271,21 @@ onMounted(async () => {
 }
 
 .msg-content {
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   font-size: 14px;
   color: #1f2329;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.msg-user .msg-content {
+  background: #eaf3ff;
+}
+
+.msg-ai .msg-content {
+  background: #effaf1;
 }
 </style>

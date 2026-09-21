@@ -84,9 +84,9 @@
               />
               <select v-model="roleFilter" class="role-select" title="按角色筛选">
                 <option value="">全部角色</option>
-                <option value="ADMIN">ADMIN</option>
-                <option value="USER">USER</option>
-                <option value="GUEST">GUEST</option>
+                <option value="ADMIN">管理员</option>
+                <option value="USER">用户</option>
+                <option value="GUEST">游客</option>
               </select>
               <button class="refresh-btn" @click="loadUsers">刷新</button>
               <div v-if="selectedIds.length" class="batch-bar">
@@ -133,7 +133,7 @@
                     <td>{{ u.phone || '-' }}</td>
                     <td>
                       <span class="role-badge" :class="`role-${(u.role || 'USER').toLowerCase()}`">
-                        {{ u.role || 'USER' }}
+                        {{ roleLabel(u.role) }}
                       </span>
                     </td>
                     <td>
@@ -248,6 +248,8 @@ const usersError = ref('')
 const actionError = ref('')
 const userSearch = ref('')
 const roleFilter = ref('') // '' 全部 | ADMIN | USER | GUEST
+const roleLabels = { ADMIN: '管理员', USER: '用户', GUEST: '游客' }
+const roleLabel = (role) => roleLabels[role] || '用户'
 const userSort = createSortState()
 const usersLoaded = ref(false)
 
