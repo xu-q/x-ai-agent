@@ -2,7 +2,12 @@
   <div class="admin">
     <header class="admin-header">
       <h1>后台管理</h1>
-      <button class="back-btn" @click="router.push('/')">返回首页</button>
+      <button class="back-btn" @click="router.push('/')">
+        <svg viewBox="0 0 24 24" width="14" height="14">
+          <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        返回首页
+      </button>
     </header>
     <main v-if="isAdmin" class="admin-main" :class="activeTab === 'messages' ? 'main-messages' : 'main-users'">
       <section class="panel" :class="activeTab === 'messages' ? 'panel-messages' : 'panel-users'">
@@ -47,14 +52,18 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="conv in filteredConversations" :key="conv.conversationId">
+              <tr
+                v-for="conv in filteredConversations"
+                :key="conv.conversationId"
+                class="clickable"
+                :title="`查看会话 ${conv.conversationId} 的消息详情`"
+                @click="goDetail(conv.conversationId)"
+              >
                 <td>
-                  <a class="conv-link" @click="goDetail(conv.conversationId)">
-                    {{ conv.conversationId }}
-                  </a>
+                  <span class="conv-link">{{ conv.conversationId }}</span>
                 </td>
                 <td class="time-cell">{{ formatTime(conv.startTime) }}</td>
-                <td>{{ conv.messageCount }}</td>
+                <td><span class="count-badge">{{ conv.messageCount }}</span></td>
               </tr>
             </tbody>
           </table>
@@ -80,6 +89,12 @@
                 <option value="GUEST">GUEST</option>
               </select>
               <button class="refresh-btn" @click="loadUsers">刷新</button>
+              <div v-if="selectedIds.length" class="batch-bar">
+                <span class="batch-info">已选 {{ selectedIds.length }} 项</span>
+                <button class="op-btn" :disabled="batchBusy" @click="batchSetStatus(1)">启用</button>
+                <button class="op-btn" :disabled="batchBusy" @click="batchSetStatus(0)">禁用</button>
+                <button class="op-btn op-danger" :disabled="batchBusy" @click="batchDelete">删除</button>
+              </div>
             </div>
             <p v-if="usersLoading" class="tip">加载中...</p>
             <p v-else-if="usersError" class="tip tip-error">{{ usersError }}</p>
@@ -90,6 +105,9 @@
               <table v-else class="conv-table user-table">
                 <thead>
                   <tr>
+                    <th class="col-check">
+                      <input type="checkbox" :checked="isAllSelected" title="全选" @change="toggleAll" />
+                    </th>
                     <th>用户 ID</th>
                     <th>用户名</th>
                     <th>手机号</th>
@@ -99,11 +117,17 @@
                       创建时间
                       <span class="sort-arrow">{{ userSort.arrow('createTime') }}</span>
                     </th>
-                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="u in filteredUsers" :key="u.id">
+                  <tr
+                    v-for="u in filteredUsers"
+                    :key="u.id"
+                    :class="{ 'row-selected': selectedIds.includes(u.id) }"
+                  >
+                    <td class="col-check">
+                      <input v-model="selectedIds" type="checkbox" :value="u.id" title="选择该用户" />
+                    </td>
                     <td class="uid">{{ u.id }}</td>
                     <td>{{ u.username }}</td>
                     <td>{{ u.phone || '-' }}</td>
@@ -118,12 +142,6 @@
                       </span>
                     </td>
                     <td class="time-cell">{{ formatTime(u.createTime) }}</td>
-                    <td class="ops">
-                      <button class="op-btn" :disabled="actionBusy[u.id]" @click="toggleStatus(u)">
-                        {{ u.status === 1 ? '禁用' : '启用' }}
-                      </button>
-                      <button class="op-btn op-danger" :disabled="actionBusy[u.id]" @click="deleteUser(u)">删除</button>
-                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -232,7 +250,6 @@ const userSearch = ref('')
 const roleFilter = ref('') // '' 全部 | ADMIN | USER | GUEST
 const userSort = createSortState()
 const usersLoaded = ref(false)
-const actionBusy = ref({})
 
 const filteredUsers = computed(() => {
   let list = users.value
@@ -272,35 +289,66 @@ async function loadUsers() {
   }
 }
 
-async function toggleStatus(u) {
-  actionBusy.value = { ...actionBusy.value, [u.id]: true }
+// ===== 批量操作 =====
+const selectedIds = ref([])
+const batchBusy = ref(false)
+
+const isAllSelected = computed(
+  () => filteredUsers.value.length > 0 && selectedIds.value.length === filteredUsers.value.length
+)
+
+function toggleAll() {
+  selectedIds.value = isAllSelected.value ? [] : filteredUsers.value.map((u) => u.id)
+}
+
+// 批量目标：跳过当前登录账号，防止自锁/自删
+function pickTargets() {
+  return selectedIds.value
+    .filter((id) => id !== currentUser?.id)
+    .map((id) => users.value.find((u) => u.id === id))
+    .filter(Boolean)
+}
+
+async function batchSetStatus(status) {
+  const targets = pickTargets()
+  if (!targets.length) {
+    actionError.value = '不能对当前登录账号执行批量操作'
+    return
+  }
+  batchBusy.value = true
   actionError.value = ''
   try {
-    await updateUser(u.id, {
-      username: u.username,
-      phone: u.phone,
-      role: u.role,
-      status: u.status === 1 ? 0 : 1
-    })
+    const results = await Promise.allSettled(
+      targets.map((u) =>
+        updateUser(u.id, { username: u.username, phone: u.phone, role: u.role, status })
+      )
+    )
+    const failed = results.filter((r) => r.status === 'rejected').length
+    if (failed) actionError.value = `${failed} 个用户操作失败，请重试`
     await loadUsers()
-  } catch (e) {
-    actionError.value = `更新用户状态失败：${e.response?.data?.message || e.message}`
+    selectedIds.value = []
   } finally {
-    actionBusy.value = { ...actionBusy.value, [u.id]: false }
+    batchBusy.value = false
   }
 }
 
-async function deleteUser(u) {
-  if (!window.confirm(`确定删除用户「${u.username}」吗？该操作不可恢复。`)) return
-  actionBusy.value = { ...actionBusy.value, [u.id]: true }
+async function batchDelete() {
+  const targets = pickTargets()
+  if (!targets.length) {
+    actionError.value = '不能对当前登录账号执行批量操作'
+    return
+  }
+  if (!window.confirm(`确定删除选中的 ${targets.length} 个用户吗？该操作不可恢复。`)) return
+  batchBusy.value = true
   actionError.value = ''
   try {
-    await removeUser(u.id)
+    const results = await Promise.allSettled(targets.map((u) => removeUser(u.id)))
+    const failed = results.filter((r) => r.status === 'rejected').length
+    if (failed) actionError.value = `${failed} 个用户删除失败，请重试`
     await loadUsers()
-  } catch (e) {
-    actionError.value = `删除用户失败：${e.response?.data?.message || e.message}`
+    selectedIds.value = []
   } finally {
-    actionBusy.value = { ...actionBusy.value, [u.id]: false }
+    batchBusy.value = false
   }
 }
 
@@ -349,6 +397,9 @@ onMounted(async () => {
 }
 
 .back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 16px;
   border: 1px solid #e5e6eb;
   border-radius: 6px;
@@ -357,6 +408,14 @@ onMounted(async () => {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.back-btn svg {
+  transition: transform 0.2s;
+}
+
+.back-btn:hover svg {
+  transform: translateX(-2px);
 }
 
 .back-btn:hover {
@@ -511,10 +570,45 @@ onMounted(async () => {
   color: #1f2329;
 }
 
+/* 行悬停高亮：消息管理浅蓝、用户管理浅绿 */
+.conv-table tbody tr {
+  transition: background 0.15s;
+}
+
+.conv-table tbody tr:hover {
+  background: rgba(22, 93, 255, 0.06);
+}
+
+.conv-table tbody tr.clickable {
+  cursor: pointer;
+}
+
+.conv-table tbody tr.clickable:hover {
+  background: rgba(22, 93, 255, 0.1);
+}
+
+.conv-table.user-table tbody tr:hover {
+  background: rgba(0, 180, 42, 0.07);
+}
+
 .conv-link {
   color: #165dff;
   cursor: pointer;
   word-break: break-all;
+}
+
+/* 消息数量气泡徽章 */
+.count-badge {
+  display: inline-block;
+  min-width: 28px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #165dff;
+  background: rgba(22, 93, 255, 0.08);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .conv-link:hover {
@@ -543,6 +637,38 @@ onMounted(async () => {
 .role-select:focus {
   border-color: #00b42a;
   box-shadow: 0 0 0 2px rgba(0, 180, 42, 0.12);
+}
+
+/* 批量操作条 */
+.batch-bar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-info {
+  font-size: 13px;
+  color: #4e5969;
+  margin-right: 2px;
+}
+
+/* 复选框列与选中行高亮 */
+.col-check {
+  width: 40px;
+  text-align: center;
+}
+
+.col-check input {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #00b42a;
+  vertical-align: middle;
+}
+
+.conv-table.user-table tbody tr.row-selected {
+  background: rgba(0, 180, 42, 0.07);
 }
 
 .refresh-btn {
@@ -607,12 +733,7 @@ onMounted(async () => {
   color: #86909c;
 }
 
-.ops {
-  white-space: nowrap;
-}
-
 .op-btn {
-  margin-right: 8px;
   padding: 4px 12px;
   border: 1px solid #00b42a;
   border-radius: 6px;

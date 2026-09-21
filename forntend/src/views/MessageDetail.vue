@@ -3,7 +3,12 @@
     <header class="detail-header">
       <h1 class="detail-title">消息详情</h1>
       <span class="conv-id">{{ conversationId }}</span>
-      <button class="back-btn" @click="router.push('/admin')">← 返回列表</button>
+      <button class="back-btn" @click="router.push('/admin')">
+        <svg viewBox="0 0 24 24" width="14" height="14">
+          <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        返回列表
+      </button>
     </header>
     <main ref="detailMainRef" class="detail-main" @scroll="onScroll">
       <p v-if="loading" class="tip">加载中...</p>
@@ -147,7 +152,10 @@ onMounted(async () => {
 
 .back-btn {
   margin-left: auto;
-  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
   border: 1px solid #e5e6eb;
   border-radius: 6px;
   background: #fff;
@@ -156,6 +164,14 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.back-btn svg {
+  transition: transform 0.2s;
+}
+
+.back-btn:hover svg {
+  transform: translateX(-2px);
 }
 
 .back-btn:hover {
