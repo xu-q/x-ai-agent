@@ -3,7 +3,7 @@
     <header class="detail-header">
       <h1 class="detail-title">消息详情</h1>
       <span class="conv-id">{{ conversationId }}</span>
-      <button class="back-btn" @click="router.push('/admin')">
+      <button class="back-btn" @click="router.push('/profile')">
         <svg viewBox="0 0 24 24" width="14" height="14">
           <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>

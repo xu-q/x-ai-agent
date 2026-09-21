@@ -74,6 +74,7 @@
         >
           <div class="avatar" :class="msg.role === 'user' ? 'avatar-user' : 'avatar-ai'" :style="msg.role === 'ai' ? { background: aiGradient } : null">
             <span v-if="msg.role === 'ai'">{{ aiIcon }}</span>
+            <img v-else-if="user?.avatar" :src="user.avatar" alt="头像" class="avatar-img" />
             <svg v-else viewBox="0 0 24 24" width="20" height="20">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
             </svg>
@@ -588,6 +589,14 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
 .avatar-user {
   background: linear-gradient(135deg, #43e97b, #38f9d7);
   color: #fff;
+}
+
+/* 用户上传的头像 */
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 .avatar-ai {

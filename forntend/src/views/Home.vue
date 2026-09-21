@@ -6,11 +6,11 @@
         <div class="corner-user">
           <span
             class="corner-avatar"
-            :class="{ 'avatar-admin': user.role === 'ADMIN' }"
-            :title="user.role === 'ADMIN' ? '已登录（管理员），点击进入后台管理' : `已登录（${user.role || 'USER'}）`"
-            @click="user.role === 'ADMIN' && router.push('/admin')"
+            :title="`已登录（${user.role || 'USER'}），点击进入个人中心`"
+            @click="router.push('/profile')"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17">
+            <img v-if="user.avatar" :src="user.avatar" alt="头像" class="corner-avatar-img" />
+            <svg v-else viewBox="0 0 24 24" fill="currentColor" width="17" height="17">
               <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.9 0-8 2-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-3-4.1-5-8-5z"/>
             </svg>
             {{ user.name }}
@@ -273,6 +273,7 @@ function goTo(path) {
   padding: 4px 10px;
   margin: -4px -10px;
   border-radius: 999px;
+  cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -287,16 +288,17 @@ function goTo(path) {
   opacity: 0.9;
 }
 
-/* 管理员头像：可点击进入后台，悬停绿色提示 */
-.avatar-admin {
-  cursor: pointer;
+/* 用户上传的头像 */
+.corner-avatar-img {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
-.avatar-admin:hover {
-  background: rgba(120, 235, 175, 0.22);
-}
-
-.avatar-admin:active {
+.corner-avatar:active {
   transform: scale(0.94);
 }
 

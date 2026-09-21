@@ -154,4 +154,62 @@ export function removeUser(id) {
   return request.delete(`/user/${id}`)
 }
 
+/**
+ * 个人中心 - 获取当前用户完整信息（后端接口待补充）
+ * GET /user/me  → UserVO
+ */
+export function getUserInfo() {
+  return request.get('/user/me')
+}
+
+/**
+ * 个人中心 - 上传头像（后端接口待补充）
+ * POST /user/avatar  multipart/form-data  → { avatar: url }
+ */
+export function uploadAvatar(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  return request.post('/user/avatar', fd)
+}
+
+/**
+ * 个人中心 - 查询签到信息（后端接口待补充）
+ * GET /user/sign/info  → { signedToday, continuousDays, monthDays, recentDates: ['2026-09-21', ...] }
+ */
+export function getSignInfo() {
+  return request.get('/user/sign/info')
+}
+
+/**
+ * 个人中心 - 每日签到（后端接口待补充）
+ * POST /user/sign  → { signedToday, continuousDays, monthDays, recentDates }
+ */
+export function doSign() {
+  return request.post('/user/sign')
+}
+
+/**
+ * 会员中心 - 查询当前会员状态（后端接口待补充）
+ * GET /membership/current  → { isVip, expireTime }
+ */
+export function getMembership() {
+  return request.get('/membership/current')
+}
+
+/**
+ * 会员中心 - 创建支付订单（后端接口待补充）
+ * POST /membership/order  body: { planKey, channel }  → { orderId, qrCodeUrl }
+ */
+export function createPayOrder(planKey, channel) {
+  return request.post('/membership/order', { planKey, channel })
+}
+
+/**
+ * 会员中心 - 查询支付状态（后端接口待补充）
+ * GET /membership/order/{orderId}/status  → { status: 'WAIT' | 'SUCCESS' }
+ */
+export function getPayStatus(orderId) {
+  return request.get(`/membership/order/${orderId}/status`)
+}
+
 export default request
