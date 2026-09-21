@@ -47,6 +47,11 @@
           <svg v-else-if="tab.key === 'messages'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
+          <!-- 系统通知 -->
+          <svg v-else-if="tab.key === 'notice'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+          </svg>
           <!-- 统计管理 -->
           <svg v-else-if="tab.key === 'stats'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 21h18"/>
@@ -62,6 +67,9 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
           {{ tab.label }}
+          <span v-if="tab.key === 'notice' && unreadCount" class="side-badge">
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
         </button>
       </nav>
       <button class="back-btn" @click="router.push('/')">
@@ -204,6 +212,42 @@
             {{ payLoading ? '正在创建订单...' : `立即开通 ¥${selectedPlanInfo.price}` }}
           </button>
           <p v-if="payError" class="mini-tip tip-warn">{{ payError }}</p>
+        </template>
+
+        <!-- 系统通知（所有用户） -->
+        <template v-else-if="activeTab === 'notice'">
+          <div class="notice-toolbar">
+            <div class="notice-filter">
+              <button :class="{ on: noticeFilter === 'all' }" @click="noticeFilter = 'all'">全部</button>
+              <button :class="{ on: noticeFilter === 'unread' }" @click="noticeFilter = 'unread'">
+                未读{{ unreadCount ? ` (${unreadCount})` : '' }}
+              </button>
+            </div>
+            <button class="read-all-btn" :disabled="!unreadCount" @click="handleReadAll">全部已读</button>
+          </div>
+          <p v-if="noticesLoading" class="tip">加载中...</p>
+          <p v-else-if="noticesError" class="tip tip-error">{{ noticesError }}</p>
+          <p v-else-if="filteredNotices.length === 0" class="tip">暂无通知</p>
+          <ul v-else class="notice-list">
+            <li
+              v-for="n in filteredNotices"
+              :key="n.id"
+              class="notice-item"
+              :class="{ unread: !n.read }"
+              @click="handleRead(n)"
+            >
+              <span class="notice-type" :class="`t-${(n.type || 'SYSTEM').toLowerCase()}`">{{ typeLabel(n.type) }}</span>
+              <div class="notice-body">
+                <div class="notice-title">
+                  {{ n.title }}
+                  <i v-if="!n.read" class="unread-dot"></i>
+                </div>
+                <p class="notice-content">{{ n.content }}</p>
+                <span class="notice-time">{{ formatTime(n.createTime) }}</span>
+              </div>
+            </li>
+          </ul>
+          <p v-if="noticesHint" class="mini-tip tip-warn">{{ noticesHint }}</p>
         </template>
 
         <!-- 对话管理（仅管理员） -->
@@ -403,6 +447,9 @@ import {
   doSign,
   getStatsOverview,
   getStatsTrend,
+  getNotices,
+  markNoticeRead,
+  markAllNoticesRead,
   getMembership,
   createPayOrder,
   getPayStatus,
@@ -422,7 +469,8 @@ const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
 const baseTabs = [
   { key: 'profile', label: '个人中心' },
-  { key: 'vip', label: '会员中心' }
+  { key: 'vip', label: '会员中心' },
+  { key: 'notice', label: '系统通知' }
 ]
 const adminTabs = [
   { key: 'messages', label: '对话管理' },
@@ -943,7 +991,74 @@ function setRange(days) {
   loadTrend()
 }
 
-// 首次进入/切到用户管理、统计管理时再加载（仅管理员；immediate 覆盖默认 tab 的场景）
+// ===== 系统通知 =====
+const notices = ref([])
+const noticesLoading = ref(false)
+const noticesError = ref('')
+const noticesHint = ref('')
+const noticeFilter = ref('all')
+
+const unreadCount = computed(() => notices.value.filter((n) => !n.read).length)
+const filteredNotices = computed(() =>
+  noticeFilter.value === 'unread' ? notices.value.filter((n) => !n.read) : notices.value
+)
+const typeLabels = { SYSTEM: '系统', ACTIVITY: '活动', UPDATE: '更新' }
+const typeLabel = (t) => typeLabels[t] || '系统'
+
+// 后端未接入时的示例数据
+function mockNotices() {
+  const mk = (minAgo, type, title, content, read) => ({
+    id: `demo-${minAgo}`,
+    type,
+    title,
+    content,
+    read,
+    createTime: new Date(Date.now() - minAgo * 60000).toISOString()
+  })
+  return {
+    list: [
+      mk(30, 'SYSTEM', '系统维护通知', '平台将于今晚 23:00 - 24:00 进行例行维护，期间服务可能出现短暂波动。', false),
+      mk(180, 'ACTIVITY', '会员限时优惠', '年卡会员限时 8 折，进入会员中心即可参与。', false),
+      mk(1440, 'UPDATE', '功能更新', '个人中心新增每日签到功能，快来连续签到赢好礼。', true),
+      mk(2880, 'SYSTEM', '安全提醒', '请勿向任何人泄露您的账号密码与短信验证码。', true),
+      mk(4320, 'ACTIVITY', '邀请有礼', '邀请好友注册，双方均可获得 3 天会员体验。', true),
+      mk(7200, 'UPDATE', '对话导出上线', '对话记录已支持导出，进入对话详情页即可一键保存。', true)
+    ]
+  }
+}
+
+async function loadNotices() {
+  noticesLoading.value = true
+  noticesError.value = ''
+  try {
+    const res = await getNotices()
+    notices.value = res.data?.list || []
+    noticesHint.value = ''
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    notices.value = mockNotices().list
+    noticesHint.value = '通知接口未接入，当前展示示例数据'
+  } finally {
+    noticesLoading.value = false
+  }
+}
+
+// 点击置为已读：本地即时生效，接口静默容错（后端未接入不阻塞交互）
+function handleRead(n) {
+  if (n.read) return
+  n.read = true
+  markNoticeRead(n.id).catch(() => {})
+}
+
+function handleReadAll() {
+  notices.value.forEach((n) => (n.read = true))
+  markAllNoticesRead().catch(() => {})
+}
+
+// 管理类 tab 首次进入时再加载（仅管理员；immediate 覆盖默认 tab 的场景）；通知在页面加载时请求
 watch(
   activeTab,
   (tab) => {
@@ -963,6 +1078,7 @@ watch(
 onMounted(() => {
   loadInfo()
   loadSignInfo()
+  loadNotices()
   loadMembership()
   if (isAdmin.value) loadConversations()
 })
@@ -1120,7 +1236,24 @@ onBeforeUnmount(stopPolling)
   background: #f2f3f5;
 }
 
-/* 激活项：主题色底色 + 左侧指示条（资料紫，会员橙，消息蓝，用户管理绿，统计青） */
+/* 未读数徽标（系统通知） */
+.side-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f53f3f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* 激活项：主题色底色 + 左侧指示条（资料紫，会员橙，通知红，对话蓝，用户管理绿，统计青） */
 .side-profile.active {
   background: rgba(114, 45, 209, 0.08);
   color: #722ed1;
@@ -1140,6 +1273,13 @@ onBeforeUnmount(stopPolling)
   color: #ff7d00;
   font-weight: 600;
   box-shadow: inset 3px 0 0 #ff7d00;
+}
+
+.side-notice.active {
+  background: rgba(245, 63, 63, 0.08);
+  color: #f53f3f;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #f53f3f;
 }
 
 .side-users.active {
@@ -1204,6 +1344,10 @@ onBeforeUnmount(stopPolling)
   background: #fdf1e3;
 }
 
+.main-notice {
+  background: #fbecec;
+}
+
 .main-users {
   background: #e6f5ec;
 }
@@ -1236,6 +1380,11 @@ onBeforeUnmount(stopPolling)
 .panel-vip {
   background: #fff7ec;
   border-top-color: #ff7d00;
+}
+
+.panel-notice {
+  background: #fff5f5;
+  border-top-color: #f53f3f;
 }
 
 .panel-users {
@@ -1343,6 +1492,155 @@ onBeforeUnmount(stopPolling)
   font-size: 14px;
   font-weight: 600;
   color: #1f2329;
+}
+
+/* ===== 系统通知（红色主题） ===== */
+.notice-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.notice-filter {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e5e6eb;
+}
+
+.notice-filter button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.notice-filter button.on {
+  background: #f53f3f;
+  color: #fff;
+  font-weight: 600;
+}
+
+.read-all-btn {
+  padding: 7px 16px;
+  border: 1px solid #e5e6eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.read-all-btn:hover:not(:disabled) {
+  color: #f53f3f;
+  border-color: #f53f3f;
+}
+
+.read-all-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.notice-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(31, 35, 41, 0.1);
+}
+
+.notice-item.unread {
+  box-shadow: inset 0 0 0 1px rgba(245, 63, 63, 0.35), 0 1px 4px rgba(31, 35, 41, 0.06);
+}
+
+.notice-type {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notice-type.t-system {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.notice-type.t-activity {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+.notice-type.t-update {
+  background: #e8f3ff;
+  color: #165dff;
+}
+
+.notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.unread-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f53f3f;
+}
+
+.notice-content {
+  margin: 0;
+  font-size: 13px;
+  color: #4e5969;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.notice-time {
+  font-size: 12px;
+  color: #86909c;
 }
 
 /* ===== 个人中心 ===== */

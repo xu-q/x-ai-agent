@@ -207,6 +207,30 @@ export function getStatsTrend(days) {
 }
 
 /**
+ * 系统通知 - 查询通知列表（后端接口待补充）
+ * GET /user/notices  → { list: [{ id, type: 'SYSTEM'|'ACTIVITY'|'UPDATE', title, content, createTime, read }] }
+ */
+export function getNotices() {
+  return request.get('/user/notices')
+}
+
+/**
+ * 系统通知 - 标记单条已读（后端接口待补充）
+ * POST /user/notices/{id}/read
+ */
+export function markNoticeRead(id) {
+  return request.post(`/user/notices/${id}/read`)
+}
+
+/**
+ * 系统通知 - 全部已读（后端接口待补充）
+ * POST /user/notices/read-all
+ */
+export function markAllNoticesRead() {
+  return request.post('/user/notices/read-all')
+}
+
+/**
  * 会员中心 - 查询当前会员状态（后端接口待补充）
  * GET /membership/current  → { isVip, expireTime }
  */
