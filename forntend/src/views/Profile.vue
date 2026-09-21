@@ -43,9 +43,16 @@
             <path d="M3 17l2-9 5 5 2-7 2 7 5-5 2 9H3z"/>
             <path d="M3 21h18"/>
           </svg>
-          <!-- 消息管理 -->
+          <!-- 对话管理 -->
           <svg v-else-if="tab.key === 'messages'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <!-- 统计管理 -->
+          <svg v-else-if="tab.key === 'stats'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 21h18"/>
+            <path d="M7 21v-7"/>
+            <path d="M12 21V11"/>
+            <path d="M17 21V5"/>
           </svg>
           <!-- 用户管理 -->
           <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -199,7 +206,7 @@
           <p v-if="payError" class="mini-tip tip-warn">{{ payError }}</p>
         </template>
 
-        <!-- 消息管理（仅管理员） -->
+        <!-- 对话管理（仅管理员） -->
         <template v-else-if="activeTab === 'messages'">
           <div class="toolbar">
             <input
@@ -218,7 +225,7 @@
               <tr>
                 <th>会话 ID</th>
                 <th class="sortable" @click="convSort.toggle('messageCount')">
-                  消息数量
+                  对话数量
                   <span class="sort-arrow">{{ convSort.arrow('messageCount') }}</span>
                 </th>
                 <th class="sortable" @click="convSort.toggle('startTime')">
@@ -246,7 +253,7 @@
         </template>
 
         <!-- 用户管理（仅管理员） -->
-        <template v-else>
+        <template v-else-if="activeTab === 'users'">
           <div class="toolbar">
             <input
               v-model.trim="userSearch"
@@ -319,6 +326,45 @@
             </table>
           </template>
         </template>
+
+        <!-- 统计管理（仅管理员） -->
+        <template v-else-if="activeTab === 'stats'">
+          <div class="stats-toolbar">
+            <div class="range-switch">
+              <button :class="{ on: trendDays === 7 }" @click="setRange(7)">近 7 天</button>
+              <button :class="{ on: trendDays === 30 }" @click="setRange(30)">近 30 天</button>
+            </div>
+          </div>
+
+          <!-- 指标卡 -->
+          <div class="stat-cards">
+            <div v-for="c in statCards" :key="c.label" class="stat-card">
+              <span class="stat-label">{{ c.label }}</span>
+              <strong class="stat-value">{{ fmtStat(c.value) }}</strong>
+              <span class="stat-diff" :class="c.diff >= 0 ? 'up' : 'down'">
+                {{ c.diff >= 0 ? '↑' : '↓' }} {{ Math.abs(c.diff).toFixed(1) }}% 较昨日
+              </span>
+            </div>
+          </div>
+
+          <!-- 趋势图 -->
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-title">活跃与签到趋势</div>
+              <SvgChart :labels="trend.dates" :series="activeSeries" :height="240" />
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">用户增长趋势</div>
+              <SvgChart :labels="trend.dates" :series="userSeries" :height="240" />
+            </div>
+            <div class="chart-card wide">
+              <div class="chart-title">对话数量趋势</div>
+              <SvgChart :labels="trend.dates" :series="msgSeries" :height="220" />
+            </div>
+          </div>
+
+          <p v-if="statsHint" class="mini-tip tip-warn">{{ statsHint }}</p>
+        </template>
       </section>
     </main>
 
@@ -355,6 +401,8 @@ import {
   uploadAvatar,
   getSignInfo,
   doSign,
+  getStatsOverview,
+  getStatsTrend,
   getMembership,
   createPayOrder,
   getPayStatus,
@@ -364,6 +412,7 @@ import {
   removeUser
 } from '../api'
 import { formatTime } from '../utils/formatTime'
+import SvgChart from '../components/SvgChart.vue'
 
 const router = useRouter()
 
@@ -376,12 +425,14 @@ const baseTabs = [
   { key: 'vip', label: '会员中心' }
 ]
 const adminTabs = [
-  { key: 'messages', label: '消息管理' },
-  { key: 'users', label: '用户管理' }
+  { key: 'messages', label: '对话管理' },
+  { key: 'users', label: '用户管理' },
+  { key: 'stats', label: '统计管理' }
 ]
 // 仅管理员展示后台管理类 tab
 const tabs = computed(() => (isAdmin.value ? [...baseTabs, ...adminTabs] : baseTabs))
-const activeTab = ref('profile')
+// 默认页：管理员进统计管理，其他用户进个人中心
+const activeTab = ref(isAdmin.value ? 'stats' : 'profile')
 
 const roleLabels = { ADMIN: '管理员', USER: '用户', GUEST: '游客' }
 const roleLabel = (role) => roleLabels[role] || '用户'
@@ -607,7 +658,7 @@ function closePay() {
   payVisible.value = false
 }
 
-// ===== 消息管理（原后台管理） =====
+// ===== 对话管理（原后台管理） =====
 const conversations = ref([])
 const loading = ref(false)
 const error = ref('')
@@ -789,12 +840,125 @@ async function batchDelete() {
   }
 }
 
-// 首次切到用户管理时再加载（仅管理员）
-watch(activeTab, (tab) => {
-  if (tab === 'users' && isAdmin.value && !usersLoaded.value) {
-    loadUsers()
-  }
+// ===== 统计管理 =====
+const statsOverview = ref({
+  todayActive: 0, todaySign: 0, totalUsers: 0, todayConversations: 0, diffs: {}
 })
+const trend = ref({ dates: [], activeCounts: [], signCounts: [], newUsers: [], userTotals: [], messageCounts: [] })
+const trendDays = ref(7)
+const statsHint = ref('')
+const statsLoaded = ref(false)
+
+const statCards = computed(() => {
+  const o = statsOverview.value
+  const d = o.diffs || {}
+  return [
+    { label: '今日上线人数', value: o.todayActive, diff: d.active ?? 0 },
+    { label: '今日签到人数', value: o.todaySign, diff: d.sign ?? 0 },
+    { label: '用户总数量', value: o.totalUsers, diff: d.users ?? 0 },
+    { label: '今日对话数', value: o.todayConversations, diff: d.conversations ?? 0 }
+  ]
+})
+const fmtStat = (v) => (typeof v === 'number' ? v.toLocaleString() : '—')
+
+// 三张图的系列配置（页面青色主题，配色区分指标）
+const activeSeries = computed(() => [
+  { name: '上线人数', color: '#0fc6c2', data: trend.value.activeCounts, type: 'line' },
+  { name: '签到人数', color: '#722ed1', data: trend.value.signCounts, type: 'line' }
+])
+const userSeries = computed(() => [
+  { name: '用户总量', color: '#3491fa', data: trend.value.userTotals, type: 'area' },
+  { name: '每日新增', color: '#ff9a2e', data: trend.value.newUsers, type: 'bar' }
+])
+const msgSeries = computed(() => [
+  { name: '对话数量', color: '#0fc6c2', data: trend.value.messageCounts, type: 'bar' }
+])
+
+// 后端未接入时的示例数据（页面明确标注）
+function mockOverview() {
+  return {
+    todayActive: 126, todaySign: 89, totalUsers: 1284, todayConversations: 326,
+    diffs: { active: 12.5, sign: -4.2, users: 1.8, conversations: 8.4 }
+  }
+}
+
+function mockTrend(days) {
+  const dates = [], activeCounts = [], signCounts = [], newUsers = [], userTotals = [], messageCounts = []
+  let total = 1150 + Math.round(Math.random() * 100)
+  const now = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    dates.push(`${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`)
+    const wave = Math.sin(i / 2.5) * 0.3 + Math.sin(i / 7) * 0.2
+    const active = Math.round(110 + wave * 45 + Math.random() * 25)
+    activeCounts.push(active)
+    signCounts.push(Math.round(active * (0.6 + Math.random() * 0.2)))
+    const nu = 3 + Math.round(Math.random() * 8)
+    newUsers.push(nu)
+    total += nu
+    userTotals.push(total)
+    messageCounts.push(active * (12 + Math.round(Math.random() * 10)))
+  }
+  return { dates, activeCounts, signCounts, newUsers, userTotals, messageCounts }
+}
+
+async function loadStatsOverview() {
+  try {
+    const res = await getStatsOverview()
+    if (res.data) {
+      statsOverview.value = res.data
+      statsHint.value = ''
+    }
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    statsOverview.value = mockOverview()
+    statsHint.value = '统计接口未接入，当前展示示例数据'
+  }
+}
+
+async function loadTrend() {
+  try {
+    const res = await getStatsTrend(trendDays.value)
+    if (res.data) {
+      trend.value = res.data
+      statsHint.value = ''
+    }
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    trend.value = mockTrend(trendDays.value)
+    statsHint.value = '统计接口未接入，当前展示示例数据'
+  }
+}
+
+function setRange(days) {
+  if (days === trendDays.value) return
+  trendDays.value = days
+  loadTrend()
+}
+
+// 首次进入/切到用户管理、统计管理时再加载（仅管理员；immediate 覆盖默认 tab 的场景）
+watch(
+  activeTab,
+  (tab) => {
+    if (!isAdmin.value) return
+    if (tab === 'users' && !usersLoaded.value) {
+      loadUsers()
+    }
+    if (tab === 'stats' && !statsLoaded.value) {
+      statsLoaded.value = true
+      loadStatsOverview()
+      loadTrend()
+    }
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   loadInfo()
@@ -956,7 +1120,7 @@ onBeforeUnmount(stopPolling)
   background: #f2f3f5;
 }
 
-/* 激活项：主题色底色 + 左侧指示条（资料紫，会员橙，消息蓝，用户管理绿） */
+/* 激活项：主题色底色 + 左侧指示条（资料紫，会员橙，消息蓝，用户管理绿，统计青） */
 .side-profile.active {
   background: rgba(114, 45, 209, 0.08);
   color: #722ed1;
@@ -983,6 +1147,13 @@ onBeforeUnmount(stopPolling)
   color: #00b42a;
   font-weight: 600;
   box-shadow: inset 3px 0 0 #00b42a;
+}
+
+.side-stats.active {
+  background: rgba(15, 198, 194, 0.1);
+  color: #0aa5a1;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #0fc6c2;
 }
 
 .back-btn {
@@ -1037,8 +1208,12 @@ onBeforeUnmount(stopPolling)
   background: #e6f5ec;
 }
 
+.main-stats {
+  background: #e4f5f5;
+}
+
 .panel {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   background: #fff;
   border-radius: 8px;
@@ -1066,6 +1241,108 @@ onBeforeUnmount(stopPolling)
 .panel-users {
   background: #f0fbf5;
   border-top-color: #00b42a;
+}
+
+.panel-stats {
+  background: #f2fbfb;
+  border-top-color: #0fc6c2;
+}
+
+/* ===== 统计管理（青色主题） ===== */
+.stats-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.range-switch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e5e6eb;
+}
+
+.range-switch button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.range-switch button.on {
+  background: #0fc6c2;
+  color: #fff;
+  font-weight: 600;
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #86909c;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1f2329;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-diff {
+  font-size: 12px;
+}
+
+.stat-diff.up {
+  color: #00b42a;
+}
+
+.stat-diff.down {
+  color: #f53f3f;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.chart-card {
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+}
+
+.chart-card.wide {
+  grid-column: 1 / -1;
+}
+
+.chart-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2329;
 }
 
 /* ===== 个人中心 ===== */
@@ -1421,7 +1698,7 @@ onBeforeUnmount(stopPolling)
   cursor: not-allowed;
 }
 
-/* ===== 消息管理 / 用户管理（原后台管理） ===== */
+/* ===== 对话管理 / 用户管理（原后台管理） ===== */
 .tip {
   text-align: center;
   color: #86909c;
@@ -1590,7 +1867,7 @@ onBeforeUnmount(stopPolling)
   color: #1f2329;
 }
 
-/* 行悬停高亮：消息管理浅蓝、用户管理浅绿 */
+/* 行悬停高亮：对话管理浅蓝、用户管理浅绿 */
 .conv-table tbody tr {
   transition: background 0.15s;
 }
@@ -1625,7 +1902,7 @@ onBeforeUnmount(stopPolling)
   text-decoration: underline;
 }
 
-/* 消息数量气泡徽章 */
+/* 对话数量气泡徽章 */
 .count-badge {
   display: inline-block;
   min-width: 28px;

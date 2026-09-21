@@ -189,6 +189,24 @@ export function doSign() {
 }
 
 /**
+ * 统计管理 - 今日概览（后端接口待补充）
+ * GET /stats/overview  → { todayActive, todaySign, totalUsers, todayConversations,
+ *                          diffs: { active, sign, users, conversations } }  // 环比昨日百分比
+ */
+export function getStatsOverview() {
+  return request.get('/stats/overview')
+}
+
+/**
+ * 统计管理 - 趋势数据（后端接口待补充）
+ * GET /stats/trend?days=7|30
+ * → { dates: ['09/15', ...], activeCounts: [], signCounts: [], newUsers: [], userTotals: [], messageCounts: [] }
+ */
+export function getStatsTrend(days) {
+  return request.get('/stats/trend', { params: { days } })
+}
+
+/**
  * 会员中心 - 查询当前会员状态（后端接口待补充）
  * GET /membership/current  → { isVip, expireTime }
  */
