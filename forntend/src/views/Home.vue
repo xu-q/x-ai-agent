@@ -3,18 +3,14 @@
     <!-- 右上角登录区 -->
     <div class="auth-corner">
       <template v-if="user">
-        <button v-if="user.role === 'ADMIN'" class="corner-admin" @click="router.push('/admin')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-          后台管理
-        </button>
         <div class="corner-user">
-          <span class="corner-avatar" :title="`已登录（${user.role || 'USER'}）`">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+          <span
+            class="corner-avatar"
+            :class="{ 'avatar-admin': user.role === 'ADMIN' }"
+            :title="user.role === 'ADMIN' ? '已登录（管理员），点击进入后台管理' : `已登录（${user.role || 'USER'}）`"
+            @click="user.role === 'ADMIN' && router.push('/admin')"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17">
               <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.9 0-8 2-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-3-4.1-5-8-5z"/>
             </svg>
             {{ user.name }}
@@ -214,7 +210,6 @@ function goTo(path) {
 
 /* ===== 液态玻璃（Liquid Glass）质感 ===== */
 .corner-btn,
-.corner-admin,
 .corner-user {
   position: relative;
   border-radius: 999px;
@@ -234,7 +229,6 @@ function goTo(path) {
 
 /* 顶缘 specular 高光线 */
 .corner-btn::before,
-.corner-admin::before,
 .corner-user::before {
   content: '';
   position: absolute;
@@ -256,33 +250,14 @@ function goTo(path) {
   text-shadow: 0 1px 2px rgba(25, 15, 60, 0.3);
 }
 
-/* 后台管理入口（仅 ADMIN 可见）：绿色玻璃 */
-.corner-admin {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 18px;
-  background: rgba(120, 235, 175, 0.09);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  text-shadow: 0 1px 2px rgba(25, 15, 60, 0.3);
-}
-
-.corner-admin svg {
-  display: block;
-  flex-shrink: 0;
-}
-
 /* 用户身份 + 退出：一体玻璃胶囊 */
 .corner-user {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 6px 5px 14px;
+  padding: 7px 8px 7px 18px;
   color: #fff;
-  font-size: 14px;
+  font-size: 15px;
   text-shadow: 0 1px 2px rgba(25, 15, 60, 0.3);
 }
 
@@ -294,7 +269,16 @@ function goTo(path) {
 .corner-avatar {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 4px 10px;
+  margin: -4px -10px;
+  border-radius: 999px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+/* 悬停头像：浮现柔和底色光斑 */
+.corner-avatar:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .corner-avatar svg {
@@ -303,8 +287,21 @@ function goTo(path) {
   opacity: 0.9;
 }
 
+/* 管理员头像：可点击进入后台，悬停绿色提示 */
+.avatar-admin {
+  cursor: pointer;
+}
+
+.avatar-admin:hover {
+  background: rgba(120, 235, 175, 0.22);
+}
+
+.avatar-admin:active {
+  transform: scale(0.94);
+}
+
 .corner-logout {
-  padding: 5px 12px;
+  padding: 6px 14px;
   border: none;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.11);
@@ -312,14 +309,13 @@ function goTo(path) {
     inset 0 0 0 1px rgba(255, 255, 255, 0.2),
     inset 0 1px 0.5px rgba(255, 255, 255, 0.45);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 /* 悬停：整体微微提亮上浮；按压回弹，液态手感 */
 .corner-btn:hover,
-.corner-admin:hover,
 .corner-user:hover {
   transform: translateY(-1.5px);
   background: rgba(255, 255, 255, 0.14);
@@ -330,7 +326,6 @@ function goTo(path) {
 }
 
 .corner-btn:active,
-.corner-admin:active,
 .corner-user:active,
 .corner-logout:active {
   transform: scale(0.96);
