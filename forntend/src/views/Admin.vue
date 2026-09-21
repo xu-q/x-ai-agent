@@ -53,7 +53,7 @@
                     {{ conv.conversationId }}
                   </a>
                 </td>
-                <td>{{ formatTime(conv.startTime) }}</td>
+                <td class="time-cell">{{ formatTime(conv.startTime) }}</td>
                 <td>{{ conv.messageCount }}</td>
               </tr>
             </tbody>
@@ -73,6 +73,12 @@
                 type="text"
                 placeholder="按用户名 / ID / 手机号搜索"
               />
+              <select v-model="roleFilter" class="role-select" title="按角色筛选">
+                <option value="">全部角色</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="USER">USER</option>
+                <option value="GUEST">GUEST</option>
+              </select>
               <button class="refresh-btn" @click="loadUsers">刷新</button>
             </div>
             <p v-if="usersLoading" class="tip">加载中...</p>
@@ -111,7 +117,7 @@
                         {{ u.status === 1 ? '正常' : '已禁用' }}
                       </span>
                     </td>
-                    <td>{{ formatTime(u.createTime) }}</td>
+                    <td class="time-cell">{{ formatTime(u.createTime) }}</td>
                     <td class="ops">
                       <button class="op-btn" :disabled="actionBusy[u.id]" @click="toggleStatus(u)">
                         {{ u.status === 1 ? '禁用' : '启用' }}
@@ -223,6 +229,7 @@ const usersLoading = ref(false)
 const usersError = ref('')
 const actionError = ref('')
 const userSearch = ref('')
+const roleFilter = ref('') // '' 全部 | ADMIN | USER | GUEST
 const userSort = createSortState()
 const usersLoaded = ref(false)
 const actionBusy = ref({})
@@ -237,6 +244,9 @@ const filteredUsers = computed(() => {
         (u.id || '').toLowerCase().includes(kw) ||
         (u.phone || '').includes(kw)
     )
+  }
+  if (roleFilter.value) {
+    list = list.filter((u) => (u.role || 'USER') === roleFilter.value)
   }
   if (userSort.field.value) {
     list = sortByDate(list, userSort.field.value, userSort.order.value)
@@ -371,7 +381,7 @@ onMounted(async () => {
 }
 
 .panel {
-  max-width: 900px;
+  max-width: 1100px;
   margin: 0 auto;
   background: #fff;
   border-radius: 8px;
@@ -517,6 +527,24 @@ onMounted(async () => {
   box-shadow: 0 0 0 2px rgba(0, 180, 42, 0.12);
 }
 
+.role-select {
+  margin-left: 12px;
+  padding: 8px 12px;
+  border: 1px solid #e5e6eb;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1f2329;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.role-select:focus {
+  border-color: #00b42a;
+  box-shadow: 0 0 0 2px rgba(0, 180, 42, 0.12);
+}
+
 .refresh-btn {
   margin-left: 12px;
   padding: 8px 14px;
@@ -537,8 +565,11 @@ onMounted(async () => {
 .uid {
   font-size: 12px;
   color: #86909c;
-  word-break: break-all;
-  max-width: 280px;
+  white-space: nowrap;
+}
+
+.time-cell {
+  white-space: nowrap;
 }
 
 .role-badge,
@@ -548,6 +579,7 @@ onMounted(async () => {
   border-radius: 999px;
   font-size: 12px;
   line-height: 1.6;
+  white-space: nowrap;
 }
 
 .role-admin {
