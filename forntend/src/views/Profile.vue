@@ -228,22 +228,26 @@
           <p v-if="noticesLoading" class="tip">加载中...</p>
           <p v-else-if="noticesError" class="tip tip-error">{{ noticesError }}</p>
           <p v-else-if="filteredNotices.length === 0" class="tip">暂无通知</p>
-          <ul v-else class="notice-list">
+          <ul v-else class="notice-timeline">
             <li
-              v-for="n in filteredNotices"
-              :key="n.id"
+              v-for="item in displayNotices"
+              :key="item.src.id"
               class="notice-item"
-              :class="{ unread: !n.read }"
-              @click="handleRead(n)"
+              :class="{ unread: !item.src.read }"
+              @click="handleRead(item.src)"
             >
-              <span class="notice-type" :class="`t-${(n.type || 'SYSTEM').toLowerCase()}`">{{ typeLabel(n.type) }}</span>
-              <div class="notice-body">
-                <div class="notice-title">
-                  {{ n.title }}
-                  <i v-if="!n.read" class="unread-dot"></i>
+              <div class="notice-when" :class="{ today: item.today }">
+                <span class="notice-date">{{ item.date }}</span>
+                <span class="notice-time">{{ item.time }}</span>
+              </div>
+              <span class="notice-node"></span>
+              <div class="notice-card">
+                <div class="notice-head">
+                  <span class="notice-type">{{ typeLabel(item.src.type) }}</span>
+                  <span class="notice-title">{{ item.src.title }}</span>
+                  <i v-if="!item.src.read" class="unread-dot"></i>
                 </div>
-                <p class="notice-content">{{ n.content }}</p>
-                <span class="notice-time">{{ formatTime(n.createTime) }}</span>
+                <p class="notice-content">{{ item.src.content }}</p>
               </div>
             </li>
           </ul>
@@ -1005,6 +1009,28 @@ const filteredNotices = computed(() =>
 const typeLabels = { SYSTEM: '系统', ACTIVITY: '活动', UPDATE: '更新' }
 const typeLabel = (t) => typeLabels[t] || '系统'
 
+// 时间轴左侧时间：今日显示「今日 + HH:MM」，历史显示「MM/DD + HH:MM」
+function noticeWhen(t) {
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return { date: '--/--', time: '--:--', today: false }
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  const p2 = (v) => String(v).padStart(2, '0')
+  return {
+    date: sameDay ? '今日' : `${p2(d.getMonth() + 1)}/${p2(d.getDate())}`,
+    time: `${p2(d.getHours())}:${p2(d.getMinutes())}`,
+    today: sameDay
+  }
+}
+
+// 装饰后的列表：保留原对象引用（已读状态仍响应），附加时间列展示字段
+const displayNotices = computed(() =>
+  filteredNotices.value.map((n) => ({ src: n, ...noticeWhen(n.createTime) }))
+)
+
 // 后端未接入时的示例数据
 function mockNotices() {
   const mk = (minAgo, type, title, content, read) => ({
@@ -1548,74 +1574,135 @@ onBeforeUnmount(stopPolling)
   cursor: not-allowed;
 }
 
-.notice-list {
+/* 时间轴容器 */
+.notice-timeline {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .notice-item {
+  position: relative;
+  padding-left: 116px;
+  cursor: pointer;
+}
+
+/* 左侧时间列：两行右对齐，紧贴节点 */
+.notice-when {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 72px;
+  text-align: right;
+  line-height: 1.4;
+}
+
+.notice-date {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4e5969;
+}
+
+.notice-when.today .notice-date {
+  color: #f53f3f;
+}
+
+.notice-time {
+  display: block;
+  font-size: 12px;
+  color: #86909c;
+}
+
+/* 节点连接线：从本节点中心延伸到下一个节点中心（节点白环自然遮住交界） */
+.notice-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 90px;
+  top: 18px;
+  bottom: -14px;
+  width: 2px;
+  background: rgba(245, 63, 63, 0.16);
+}
+
+/* 节点：已读灰色，未读红色 + 光环 */
+.notice-node {
+  position: absolute;
+  left: 84px;
+  top: 18px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid #c9cdd4;
+  background: #fff;
+  box-shadow: 0 0 0 3px #fff;
+}
+
+.notice-item.unread .notice-node {
+  border-color: #f53f3f;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 5.5px rgba(245, 63, 63, 0.2);
+}
+
+/* 通知卡片 */
+.notice-card {
   display: flex;
-  gap: 14px;
+  flex-direction: column;
+  gap: 6px;
   padding: 14px 16px;
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
-  cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.notice-item:hover {
+.notice-item:hover .notice-card {
   transform: translateY(-1px);
   box-shadow: 0 3px 10px rgba(31, 35, 41, 0.1);
 }
 
-.notice-item.unread {
+.notice-item.unread .notice-card {
   box-shadow: inset 0 0 0 1px rgba(245, 63, 63, 0.35), 0 1px 4px rgba(31, 35, 41, 0.06);
 }
 
+/* 标题行：类型徽章 + 标题 + 未读点 + 时间 */
+.notice-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 类型徽章：跟随已读状态配色 */
 .notice-type {
   flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 2px;
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  background: #f2f3f5;
+  color: #86909c;
 }
 
-.notice-type.t-system {
+.notice-item.unread .notice-type {
   background: #ffece8;
   color: #f53f3f;
 }
 
-.notice-type.t-activity {
-  background: #fff3e8;
-  color: #ff7d00;
-}
-
-.notice-type.t-update {
-  background: #e8f3ff;
-  color: #165dff;
-}
-
-.notice-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-
 .notice-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 14px;
   font-weight: 600;
+  color: #4e5969;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notice-item.unread .notice-title {
   color: #1f2329;
 }
 
@@ -1630,7 +1717,7 @@ onBeforeUnmount(stopPolling)
 .notice-content {
   margin: 0;
   font-size: 13px;
-  color: #4e5969;
+  color: #86909c;
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1638,9 +1725,8 @@ onBeforeUnmount(stopPolling)
   overflow: hidden;
 }
 
-.notice-time {
-  font-size: 12px;
-  color: #86909c;
+.notice-item.unread .notice-content {
+  color: #4e5969;
 }
 
 /* ===== 个人中心 ===== */
