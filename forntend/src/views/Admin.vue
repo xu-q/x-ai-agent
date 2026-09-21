@@ -4,7 +4,7 @@
       <h1>后台管理</h1>
       <button class="back-btn" @click="router.push('/')">返回首页</button>
     </header>
-    <main class="admin-main" :class="activeTab === 'messages' ? 'main-messages' : 'main-users'">
+    <main v-if="isAdmin" class="admin-main" :class="activeTab === 'messages' ? 'main-messages' : 'main-users'">
       <section class="panel" :class="activeTab === 'messages' ? 'panel-messages' : 'panel-users'">
         <div class="tab-bar">
           <button
@@ -124,6 +124,11 @@
             </template>
           </template>
         </template>
+      </section>
+    </main>
+    <main v-else class="admin-main">
+      <section class="panel">
+        <p class="tip">⛔ 仅管理员账号可访问后台管理</p>
       </section>
     </main>
   </div>
