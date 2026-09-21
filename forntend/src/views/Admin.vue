@@ -41,13 +41,13 @@
             <thead>
               <tr>
                 <th>会话 ID</th>
-                <th class="sortable" @click="convSort.toggle('startTime')">
-                  创建时间
-                  <span class="sort-arrow">{{ convSort.arrow('startTime') }}</span>
-                </th>
                 <th class="sortable" @click="convSort.toggle('messageCount')">
                   消息数量
                   <span class="sort-arrow">{{ convSort.arrow('messageCount') }}</span>
+                </th>
+                <th class="sortable" @click="convSort.toggle('startTime')">
+                  创建时间
+                  <span class="sort-arrow">{{ convSort.arrow('startTime') }}</span>
                 </th>
               </tr>
             </thead>
@@ -62,8 +62,8 @@
                 <td>
                   <span class="conv-link">{{ conv.conversationId }}</span>
                 </td>
-                <td class="time-cell">{{ formatTime(conv.startTime) }}</td>
                 <td><span class="count-badge">{{ conv.messageCount }}</span></td>
+                <td class="time-cell">{{ formatTime(conv.startTime) }}</td>
               </tr>
             </tbody>
           </table>
