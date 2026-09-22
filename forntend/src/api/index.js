@@ -155,21 +155,29 @@ export function removeUser(id) {
 }
 
 /**
- * 个人中心 - 获取当前用户完整信息（后端接口待补充）
- * GET /user/me  → UserVO
+ * 个人中心 - 获取当前用户完整信息（已对接后端 UserController.getCurrentUser）
+ * GET /user/info  → UserVO { id, username, phone, avatar, role, createTime }
  */
 export function getUserInfo() {
-  return request.get('/user/me')
+  return request.get('/user/info')
 }
 
 /**
- * 个人中心 - 上传头像（后端接口待补充）
- * POST /user/avatar  multipart/form-data  → { avatar: url }
+ * 上传头像（已对接后端 FileController.uploadAvatar）
+ * POST /file/avatar  multipart/form-data 字段 file  → R<String>，data 为头像 URL
  */
 export function uploadAvatar(file) {
   const fd = new FormData()
   fd.append('file', file)
-  return request.post('/user/avatar', fd)
+  return request.post('/file/avatar', fd)
+}
+
+/**
+ * 当前登录用户更新自己的资料（头像 / 手机号，后端仅允许这两个字段，防越权）
+ * PUT /user/profile  body: { avatar?, phone? }  → UserVO
+ */
+export function updateMyProfile(data) {
+  return request.put('/user/profile', data)
 }
 
 /**

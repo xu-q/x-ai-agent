@@ -21,6 +21,16 @@ public interface FileStorageService {
     String upload(MultipartFile file) throws IOException;
 
     /**
+     * 上传用户头像：按 userId 固定 key（无扩展名），重传即覆盖旧图，避免孤儿文件累积。
+     *
+     * @param userId 当前登录用户 ID（由服务端从 token 解析，前端无法伪造 key）
+     * @param file   头像文件（仅允许图片类型）
+     * @return 头像访问地址
+     * @throws IOException 读取文件流失败
+     */
+    String uploadAvatar(String userId, MultipartFile file) throws IOException;
+
+    /**
      * 根据 key 删除已上传的文件。
      *
      * @param key 文件唯一标识（即上传返回 URL 中路径部分）

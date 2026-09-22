@@ -17,6 +17,9 @@ public class UserRegisterDTO {
     /** 手机号（可选） */
     private String phone;
 
+    /** 头像 URL（可选，更新时传入 OSS 返回的地址） */
+    private String avatar;
+
     /** 角色（可选，缺省 USER） */
     private String role;
 

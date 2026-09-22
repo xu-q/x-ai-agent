@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     username    VARCHAR(64)   NOT NULL,
     password    VARCHAR(100)  NOT NULL,
     phone       VARCHAR(32),
+    avatar      VARCHAR(512),
     role        VARCHAR(20)   NOT NULL DEFAULT 'USER',
     status      SMALLINT      NOT NULL DEFAULT 1,
     create_time TIMESTAMP,
@@ -12,3 +13,6 @@ CREATE TABLE IF NOT EXISTS sys_user (
     CONSTRAINT sys_user_pkey PRIMARY KEY (id),
     CONSTRAINT sys_user_username_uniq UNIQUE (username)
 );
+
+-- 已存在 sys_user 表的库，执行以下语句追加头像字段（幂等）
+ALTER TABLE sys_user ADD COLUMN IF NOT EXISTS avatar VARCHAR(512);

@@ -14,6 +14,7 @@ public class UserVO {
     private String id;
     private String username;
     private String phone;
+    private String avatar;
     private String role;
     private Integer status;
     private LocalDateTime createTime;
@@ -27,6 +28,7 @@ public class UserVO {
         vo.setId(u.getId());
         vo.setUsername(u.getUsername());
         vo.setPhone(u.getPhone());
+        vo.setAvatar(u.getAvatar());
         vo.setRole(u.getRole());
         vo.setStatus(u.getStatus());
         vo.setCreateTime(u.getCreateTime());

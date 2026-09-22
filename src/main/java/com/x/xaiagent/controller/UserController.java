@@ -88,4 +88,10 @@ public class UserController {
     public R<UserVO> getCurrentUser(HttpServletRequest request) {
         return R.ok(userService.getCurrentUser(request));
     }
+
+    /** 当前登录用户更新自己的资料（仅限头像 / 手机号，防越权） */
+    @PutMapping("/profile")
+    public R<UserVO> updateProfile(@RequestBody UserRegisterDTO dto, HttpServletRequest request) {
+        return R.ok(userService.updateProfile(dto, request));
+    }
 }

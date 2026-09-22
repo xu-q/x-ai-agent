@@ -28,6 +28,9 @@ public class User {
     /** 手机号（可选） */
     private String phone;
 
+    /** 头像 URL（可选，OSS 直链或签名 URL） */
+    private String avatar;
+
     /** 角色：ADMIN / USER / GUEST */
     private String role;
 

@@ -101,6 +101,12 @@
         </svg>
         返回首页
       </button>
+      <button class="logout-btn" @click="doLogout">
+        <svg viewBox="0 0 24 24" width="14" height="14">
+          <path d="M15 12H4m0 0l4-4m-4 4l4 4M9 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        退出登录
+      </button>
     </aside>
 
     <main class="page-main" :class="`main-${activeTab}`">
@@ -169,7 +175,30 @@
               </div>
               <div class="info-row">
                 <span class="info-label">手机号</span>
-                <span class="info-value">{{ info.phone || '-' }}</span>
+                <span class="info-value">
+                  <span class="phone-wrap">
+                    <template v-if="editingPhone">
+                      <input
+                        v-model="phoneDraft"
+                        class="phone-input"
+                        type="text"
+                        maxlength="11"
+                        placeholder="11 位手机号"
+                        @keyup.enter="savePhone"
+                      />
+                      <button
+                        class="phone-btn primary"
+                        :disabled="phoneSaving || !/^1\d{10}$/.test(phoneDraft)"
+                        @click="savePhone"
+                      >{{ phoneSaving ? '保存中...' : '保存' }}</button>
+                      <button class="phone-btn" @click="editingPhone = false">取消</button>
+                    </template>
+                    <template v-else>
+                      {{ info.phone || '未绑定' }}
+                      <button class="phone-btn" @click="startEditPhone">{{ info.phone ? '修改' : '绑定' }}</button>
+                    </template>
+                  </span>
+                </span>
               </div>
               <div class="info-row">
                 <span class="info-label">角色</span>
@@ -184,6 +213,7 @@
                 <span class="info-value">{{ info.createTime ? formatTime(info.createTime) : '-' }}</span>
               </div>
               <p v-if="infoError" class="mini-tip">{{ infoError }}</p>
+              <p v-if="phoneHint" class="mini-tip" :class="phoneHint.includes('失败') ? 'tip-warn' : 'tip-success'">{{ phoneHint }}</p>
               <p v-if="uploadError" class="mini-tip tip-warn">{{ uploadError }}</p>
             </div>
           </div>
@@ -771,6 +801,7 @@ import {
   saveAuthUser,
   getUserInfo,
   uploadAvatar,
+  updateMyProfile,
   getSignInfo,
   doSign,
   getStatsOverview,
@@ -798,12 +829,23 @@ import {
   listConversations,
   listUsers,
   updateUser,
-  removeUser
+  removeUser,
+  userLogout,
+  clearAuth
 } from '../api'
 import { formatTime } from '../utils/formatTime'
 import SvgChart from '../components/SvgChart.vue'
 
 const router = useRouter()
+
+// 退出登录：调后端（静默容错）→ 清本地身份 → 回首页
+async function doLogout() {
+  try {
+    await userLogout()
+  } catch { /* 后端失败也照常清理本地 */ }
+  clearAuth()
+  router.push('/')
+}
 
 // 当前登录身份（精简对象 {id, name, role, avatar?}）
 const user = ref(JSON.parse(sessionStorage.getItem('chat-user') || 'null'))
@@ -838,13 +880,55 @@ const infoError = ref('')
 async function loadInfo() {
   try {
     const res = await getUserInfo()
-    info.value = res.data || info.value
+    if (res.data) {
+      info.value = res.data
+      // 同步本地身份，首页胶囊 / 聊天室头像共用（token 传 null 不覆盖）
+      const merged = { ...user.value, ...res.data, name: res.data.username || user.value?.name }
+      user.value = merged
+      saveAuthUser(merged, null)
+    }
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
     infoError.value = '完整资料需后端接口支持，当前展示本地信息'
+  }
+}
+
+// 手机号绑定 / 修改（PUT /user/profile 仅允许更新头像与手机号）
+const editingPhone = ref(false)
+const phoneDraft = ref('')
+const phoneSaving = ref(false)
+const phoneHint = ref('')
+
+function startEditPhone() {
+  phoneDraft.value = info.value.phone || ''
+  phoneHint.value = ''
+  editingPhone.value = true
+}
+
+async function savePhone() {
+  const phone = phoneDraft.value.trim()
+  if (!/^1\d{10}$/.test(phone)) return
+  phoneSaving.value = true
+  phoneHint.value = ''
+  try {
+    const res = await updateMyProfile({ phone })
+    info.value.phone = res.data?.phone || phone
+    // 同步本地身份（token 传 null 不覆盖）
+    user.value = { ...user.value, phone: info.value.phone }
+    saveAuthUser(user.value, null)
+    phoneHint.value = '手机号已更新'
+    editingPhone.value = false
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    phoneHint.value = e.response?.status === 400 ? e.response.data?.message || '手机号格式不正确' : '保存失败，请稍后再试'
+  } finally {
+    phoneSaving.value = false
   }
 }
 
@@ -878,10 +962,22 @@ async function doUpload(file) {
   uploadError.value = ''
   try {
     const res = await uploadAvatar(file)
-    const url = res.data?.avatar || ''
+    // 后端 R<String>：data 直接是头像 URL
+    const url = (typeof res.data === 'string' ? res.data : res.data?.data || res.data?.avatar) || ''
     if (!url) throw new Error('响应缺少头像地址')
     if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
     previewUrl.value = ''
+    // 上传成功后调用用户信息更新接口落库
+    try {
+      await updateMyProfile({ avatar: url })
+    } catch (e2) {
+      if (e2.response?.status === 401) {
+        router.push('/')
+        return
+      }
+      // 落库失败不阻塞：本地仍生效，仅提示
+      uploadError.value = '头像已上传但保存失败，重新登录后可能丢失'
+    }
     // 合并本地身份（token 传 null 不覆盖）
     const merged = { ...user.value, avatar: url }
     user.value = merged
@@ -892,7 +988,9 @@ async function doUpload(file) {
     uploadError.value =
       e.response?.status === 401
         ? '登录已过期，请重新登录'
-        : '头像上传服务暂未上线，请稍后再试'
+        : e.response?.status === 500
+          ? '上传失败，请检查图片后重试'
+          : '头像上传失败，请稍后再试'
   } finally {
     uploading.value = false
   }
@@ -2087,6 +2185,36 @@ onBeforeUnmount(stopPolling)
   color: #3446c2;
   font-weight: 600;
   box-shadow: inset 3px 0 0 #3446c2;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn svg {
+  transition: transform 0.2s;
+}
+
+.logout-btn:hover {
+  background: #f53f3f;
+  border-color: #f53f3f;
+  color: #fff;
+}
+
+.logout-btn:hover svg {
+  transform: translateX(2px);
 }
 
 .back-btn {
@@ -3669,6 +3797,74 @@ onBeforeUnmount(stopPolling)
   margin: 0 0 10px;
   font-size: 12px;
   color: #86909c;
+}
+
+/* 手机号行内编辑 */
+.phone-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.phone-input {
+  width: 156px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid #e5e6eb;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #1f2329;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.phone-input::placeholder {
+  color: #c9cdd4;
+}
+
+.phone-input:focus {
+  border-color: #722ed1;
+  box-shadow: 0 0 0 3px rgba(114, 45, 209, 0.12);
+}
+
+.phone-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 16px;
+  border: 1px solid #e5e6eb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  color: #4e5969;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.phone-btn:hover:not(:disabled) {
+  border-color: #722ed1;
+  color: #722ed1;
+}
+
+.phone-btn.primary {
+  border: none;
+  background: linear-gradient(135deg, #8a4bea, #722ed1);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(114, 45, 209, 0.25);
+}
+
+.phone-btn.primary:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.phone-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ===== 积分明细（黄绿主题） ===== */

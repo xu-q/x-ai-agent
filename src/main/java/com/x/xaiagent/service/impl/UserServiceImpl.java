@@ -111,6 +111,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.hasText(dto.getPhone())) {
             u.setPhone(dto.getPhone());
         }
+        if (StringUtils.hasText(dto.getAvatar())) {
+            u.setAvatar(dto.getAvatar());
+        }
         if (StringUtils.hasText(dto.getRole())) {
             u.setRole(dto.getRole());
         }
@@ -168,5 +171,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         }
         return user;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserVO updateProfile(UserRegisterDTO dto, HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("未登录或 token 缺失");
+        }
+        String userId = jwtTokenProvider.parseToken(header.substring(7).trim()).getSubject();
+        User u = getById(userId);
+        if (u == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        // 仅允许更新头像与手机号，角色 / 状态 / 密码不可通过此接口修改
+        if (StringUtils.hasText(dto.getAvatar())) {
+            u.setAvatar(dto.getAvatar());
+        }
+        if (StringUtils.hasText(dto.getPhone())) {
+            u.setPhone(dto.getPhone());
+        }
+        u.setUpdateTime(LocalDateTime.now());
+        updateById(u);
+        return UserVO.from(u);
     }
 }

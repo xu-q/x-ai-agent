@@ -36,4 +36,7 @@ public interface UserService extends IService<User> {
     boolean removeUser(String id);
 
     UserVO getCurrentUser(HttpServletRequest request);
+
+    /** 当前登录用户更新自己的资料（仅限头像 / 手机号，防越权） */
+    UserVO updateProfile(UserRegisterDTO dto, HttpServletRequest request);
 }
