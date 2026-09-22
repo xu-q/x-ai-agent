@@ -52,6 +52,13 @@
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
           </svg>
+          <!-- 积分明细 -->
+          <svg v-else-if="tab.key === 'points'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M9 9.5l3 3.5 3-3.5"/>
+            <path d="M12 13v4"/>
+            <path d="M9.5 14.5h5"/>
+          </svg>
           <!-- 统计管理 -->
           <svg v-else-if="tab.key === 'stats'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 21h18"/>
@@ -63,6 +70,12 @@
           <svg v-else-if="tab.key === 'plans'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
             <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+          <!-- 积分管理 -->
+          <svg v-else-if="tab.key === 'pointsAdmin'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5.5" rx="7" ry="2.5"/>
+            <path d="M5 5.5v6.5c0 1.38 3.13 2.5 7 2.5s7-1.12 7-2.5V5.5"/>
+            <path d="M5 12v6.5c0 1.38 3.13 2.5 7 2.5s7-1.12 7-2.5V12"/>
           </svg>
           <!-- 消息发布 -->
           <svg v-else-if="tab.key === 'publish'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -122,7 +135,10 @@
                 {{ d.label }}
               </span>
             </div>
-            <p v-if="signSuccess" class="mini-tip tip-success">签到成功，已连续签到 {{ sign.continuousDays }} 天</p>
+            <p v-if="signSuccess" class="mini-tip tip-success">
+              签到成功，已连续签到 {{ sign.continuousDays }} 天
+              <template v-if="signPointsEarned != null">，+{{ signPointsEarned }} 积分</template>
+            </p>
             <p v-if="signError" class="mini-tip tip-warn">{{ signError }}</p>
           </div>
 
@@ -263,6 +279,46 @@
             </li>
           </ul>
           <p v-if="noticesHint" class="mini-tip tip-warn">{{ noticesHint }}</p>
+        </template>
+        <!-- 积分明细 -->
+        <template v-else-if="activeTab === 'points'">
+          <div class="points-balance-card">
+            <div class="pb-left">
+              <p class="pb-label">当前积分</p>
+              <p class="pb-value">{{ pointsSummary.balance }}</p>
+            </div>
+            <div class="pb-right">
+              <div class="pb-item">
+                <p class="pb-label">累计获得</p>
+                <p class="pb-num earn">+{{ pointsSummary.totalEarned }}</p>
+              </div>
+              <div class="pb-item">
+                <p class="pb-label">累计消费</p>
+                <p class="pb-num spend">-{{ pointsSummary.totalSpent }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="points-filters">
+            <button
+              v-for="f in [['ALL', '全部'], ['EARN', '收入'], ['SPEND', '支出']]"
+              :key="f[0]"
+              class="points-filter-btn"
+              :class="{ active: pointsFilter === f[0] }"
+              @click="pointsFilter = f[0]"
+            >{{ f[1] }}</button>
+          </div>
+          <ul class="points-list">
+            <li v-for="r in filteredPointsRecords" :key="r.id" class="points-item">
+              <span class="points-type" :class="`pt-${r.type.toLowerCase()}`">{{ recordMeta(r.type) }}</span>
+              <div class="points-info">
+                <p class="points-title">{{ r.title }}</p>
+                <p class="points-time">{{ r.createTime }}</p>
+              </div>
+              <span class="points-delta" :class="r.points > 0 ? 'earn' : 'spend'">{{ fmtPoints(r.points) }}</span>
+            </li>
+            <li v-if="!filteredPointsRecords.length" class="points-empty">暂无积分记录</li>
+          </ul>
+          <p v-if="pointsHint" class="mini-tip tip-warn">{{ pointsHint }}</p>
         </template>
 
         <!-- 对话管理（仅管理员） -->
@@ -442,6 +498,65 @@
           </div>
           <p v-if="adminPlansHint" class="mini-tip tip-warn">{{ adminPlansHint }}</p>
         </template>
+        <!-- 积分管理 -->
+        <template v-else-if="activeTab === 'pointsAdmin'">
+          <div class="rules-card">
+            <div class="rules-head">
+              <h3 class="rules-title">积分规则</h3>
+              <button class="rules-save-btn" :disabled="rulesSaving" @click="saveRules">
+                {{ rulesSaving ? '保存中...' : '保存规则' }}
+              </button>
+            </div>
+            <div class="rules-grid">
+              <label class="plan-field">
+                <span>签到基础分</span>
+                <input v-model.number="pointsRules.signInBase" type="number" min="0" />
+              </label>
+              <label class="plan-field">
+                <span>连续每天加成</span>
+                <input v-model.number="pointsRules.signInBonusPerDay" type="number" min="0" />
+              </label>
+              <label class="plan-field">
+                <span>单日封顶</span>
+                <input v-model.number="pointsRules.signInMax" type="number" min="1" />
+              </label>
+            </div>
+            <p v-if="rulesHint" class="mini-tip">{{ rulesHint }}</p>
+          </div>
+          <div class="pub-toolbar">
+            <input v-model="pointsKeyword" class="rules-search" type="text" placeholder="按用户名搜索" />
+          </div>
+          <div class="table-wrap">
+            <table class="pub-table">
+              <thead>
+                <tr>
+                  <th>用户名</th>
+                  <th>当前余额</th>
+                  <th>累计获得</th>
+                  <th>累计消费</th>
+                  <th>最近变动</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="u in filteredPointsUsers" :key="u.userId">
+                  <td class="pub-title-cell">{{ u.username }}</td>
+                  <td><strong class="pt-balance">{{ u.balance }}</strong></td>
+                  <td class="pt-earn">+{{ u.totalEarned }}</td>
+                  <td class="pt-spend">-{{ u.totalSpent }}</td>
+                  <td>{{ u.lastChangeTime }}</td>
+                  <td>
+                    <button class="pub-op primary" @click="openPointAdjust(u)">调整</button>
+                  </td>
+                </tr>
+                <tr v-if="!filteredPointsUsers.length">
+                  <td colspan="6" class="pub-empty">暂无用户</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="pointsUsersHint" class="mini-tip tip-warn">{{ pointsUsersHint }}</p>
+        </template>
         <!-- 消息发布 -->
         <template v-else-if="activeTab === 'publish'">
           <div class="pub-toolbar">
@@ -607,6 +722,45 @@
         </button>
       </div>
     </div>
+
+    <!-- 调整积分弹窗 -->
+    <div v-if="pointAdjustVisible" class="pay-mask" @click.self="pointAdjustVisible = false">
+      <div class="pay-dialog plan-dialog">
+        <button class="pay-close" title="关闭" @click="pointAdjustVisible = false">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <h2 class="pay-title">调整积分 - {{ pointAdjustForm.username }}</h2>
+        <div class="plan-form">
+          <div class="plan-field row radio-row">
+            <label class="radio-item">
+              <input v-model="pointAdjustForm.mode" type="radio" value="add" />
+              加分
+            </label>
+            <label class="radio-item">
+              <input v-model="pointAdjustForm.mode" type="radio" value="sub" />
+              减分
+            </label>
+          </div>
+          <label class="plan-field">
+            <span>积分数量</span>
+            <input v-model.number="pointAdjustForm.points" type="number" min="1" />
+          </label>
+          <label class="plan-field">
+            <span>原因备注</span>
+            <input v-model="pointAdjustForm.reason" type="text" maxlength="50" placeholder="如：活动补偿（必填）" />
+          </label>
+        </div>
+        <button
+          class="plan-save-btn indigo"
+          :disabled="pointAdjustSaving || !(pointAdjustForm.points > 0) || !pointAdjustForm.reason.trim()"
+          @click="submitPointAdjust"
+        >
+          {{ pointAdjustSaving ? '提交中...' : '提交调整' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -635,6 +789,12 @@ import {
   updateAdminNotice,
   toggleAdminNotice,
   removeAdminNotice,
+  getUserPointsSummary,
+  getUserPointsRecords,
+  getPointsRules,
+  savePointsRules,
+  listPointsUsers,
+  adjustUserPoints,
   listConversations,
   listUsers,
   updateUser,
@@ -652,6 +812,7 @@ const isAdmin = computed(() => user.value?.role === 'ADMIN')
 const baseTabs = [
   { key: 'profile', label: '个人中心' },
   { key: 'vip', label: '会员中心' },
+  { key: 'points', label: '积分明细' },
   { key: 'notice', label: '系统通知' }
 ]
 const adminTabs = [
@@ -659,6 +820,7 @@ const adminTabs = [
   { key: 'users', label: '用户管理' },
   { key: 'stats', label: '统计管理' },
   { key: 'plans', label: '会员管理' },
+  { key: 'pointsAdmin', label: '积分管理' },
   { key: 'publish', label: '消息发布' }
 ]
 // 仅管理员展示后台管理类 tab
@@ -741,6 +903,8 @@ const sign = ref({ signedToday: false, continuousDays: 0, monthDays: 0, recentDa
 const signLoading = ref(false)
 const signError = ref('')
 const signSuccess = ref(false)
+// 签到获得的积分（后端返回 earnedPoints 时展示）
+const signPointsEarned = ref(null)
 
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -777,6 +941,12 @@ async function handleSign() {
     const res = await doSign()
     // 后端返回全量数据则整体替换，否则本地补今天的记录
     if (res.data) sign.value = { ...sign.value, ...res.data }
+    // 签到送积分：后端返回 earnedPoints 时同步积分概览
+    if (res.data?.earnedPoints != null) {
+      signPointsEarned.value = res.data.earnedPoints
+      pointsSummary.value.balance += res.data.earnedPoints
+      pointsSummary.value.totalEarned += res.data.earnedPoints
+    }
     if (!sign.value.signedToday) {
       const today = dateKey(new Date())
       if (!sign.value.recentDates.includes(today)) sign.value.recentDates.push(today)
@@ -1301,6 +1471,13 @@ watch(
     if (tab === 'publish' && !adminNoticesLoaded.value) {
       loadAdminNotices()
     }
+    if (tab === 'points' && !pointsLoaded.value) {
+      loadPoints()
+    }
+    if (tab === 'pointsAdmin' && !pointsAdminLoaded.value) {
+      loadPointsRules()
+      loadPointsUsers()
+    }
   },
   { immediate: true }
 )
@@ -1516,6 +1693,159 @@ async function batchRemoveNotices() {
   }
   adminNotices.value = adminNotices.value.filter((n) => !ids.includes(n.id))
   selectedNoticeIds.value = []
+}
+
+// ===== 积分明细（用户）=====
+const pointsSummary = ref({ balance: 0, totalEarned: 0, totalSpent: 0 })
+const pointsRecords = ref([])
+const pointsLoaded = ref(false)
+const pointsHint = ref('')
+const pointsFilter = ref('ALL')
+
+const DEMO_POINTS_RECORDS = [
+  { id: 1, type: 'SIGN_IN', title: '每日签到（连续 3 天）', points: 8, createTime: '2026-09-21 08:30' },
+  { id: 2, type: 'RECHARGE', title: '充值会员赠送', points: 100, createTime: '2026-09-20 15:20' },
+  { id: 3, type: 'SPEND', title: '积分兑换权益', points: -50, createTime: '2026-09-19 20:10' },
+  { id: 4, type: 'SIGN_IN', title: '每日签到（连续 2 天）', points: 7, createTime: '2026-09-20 08:26' },
+  { id: 5, type: 'ADMIN_ADJUST', title: '管理员调整：活动补偿', points: 20, createTime: '2026-09-18 10:05' },
+  { id: 6, type: 'SIGN_IN', title: '每日签到', points: 5, createTime: '2026-09-17 08:31' }
+]
+
+const filteredPointsRecords = computed(() =>
+  pointsFilter.value === 'ALL'
+    ? pointsRecords.value
+    : pointsRecords.value.filter((r) => (pointsFilter.value === 'EARN' ? r.points > 0 : r.points < 0))
+)
+
+const pointTypeLabels = { SIGN_IN: '签到', RECHARGE: '充值', SPEND: '消费', ADMIN_ADJUST: '调整' }
+const recordMeta = (type) => pointTypeLabels[type] || '其他'
+const fmtPoints = (n) => (n > 0 ? `+${n}` : `${n}`)
+
+async function loadPoints() {
+  pointsLoaded.value = true
+  pointsHint.value = ''
+  try {
+    const [sumRes, recRes] = await Promise.all([getUserPointsSummary(), getUserPointsRecords()])
+    if (sumRes.data) pointsSummary.value = sumRes.data
+    const list = recRes.data?.list
+    pointsRecords.value = Array.isArray(list) && list.length ? list : DEMO_POINTS_RECORDS
+    if (!Array.isArray(list)) pointsHint.value = '积分接口未接入，当前展示示例数据'
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    pointsHint.value = '积分接口未接入，当前展示示例数据'
+  }
+}
+
+// ===== 积分管理（仅管理员）=====
+const DEFAULT_POINT_RULES = { signInBase: 5, signInBonusPerDay: 1, signInMax: 10 }
+const pointsRules = ref({ ...DEFAULT_POINT_RULES })
+const rulesSaving = ref(false)
+const rulesHint = ref('')
+const pointsUsers = ref([])
+const pointsAdminLoaded = ref(false)
+const pointsUsersHint = ref('')
+const pointsKeyword = ref('')
+const pointAdjustVisible = ref(false)
+const pointAdjustSaving = ref(false)
+const pointAdjustForm = ref({ userId: '', username: '', mode: 'add', points: 10, reason: '' })
+
+const filteredPointsUsers = computed(() => {
+  const kw = pointsKeyword.value.trim().toLowerCase()
+  return kw ? pointsUsers.value.filter((u) => u.username.toLowerCase().includes(kw)) : pointsUsers.value
+})
+
+const DEMO_POINTS_USERS = [
+  { userId: '6263ffa8', username: 'xuqing', balance: 2480, totalEarned: 3120, totalSpent: 640, lastChangeTime: '2026-09-21 08:30' },
+  { userId: '99507168', username: 'xu', balance: 356, totalEarned: 406, totalSpent: 50, lastChangeTime: '2026-09-20 20:10' },
+  { userId: '24999b27', username: '游客7588', balance: 15, totalEarned: 15, totalSpent: 0, lastChangeTime: '2026-09-18 08:26' }
+]
+
+async function loadPointsRules() {
+  rulesHint.value = ''
+  try {
+    const res = await getPointsRules()
+    if (res.data) pointsRules.value = res.data
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    pointsRules.value = { ...DEFAULT_POINT_RULES }
+    rulesHint.value = '积分规则接口未接入，当前展示默认值'
+  }
+}
+
+async function saveRules() {
+  rulesSaving.value = true
+  rulesHint.value = ''
+  try {
+    await savePointsRules(pointsRules.value)
+    rulesHint.value = '规则已保存'
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 后端未就绪：本地生效
+    rulesHint.value = '积分规则接口未接入，已本地记录'
+  } finally {
+    rulesSaving.value = false
+  }
+}
+
+async function loadPointsUsers() {
+  pointsAdminLoaded.value = true
+  pointsUsersHint.value = ''
+  try {
+    const res = await listPointsUsers()
+    const list = res.data?.list
+    pointsUsers.value = Array.isArray(list) && list.length ? list : DEMO_POINTS_USERS
+    if (!Array.isArray(list)) pointsUsersHint.value = '积分接口未接入，当前展示示例数据'
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    pointsUsers.value = DEMO_POINTS_USERS
+    pointsUsersHint.value = '积分接口未接入，当前展示示例数据'
+  }
+}
+
+function openPointAdjust(u) {
+  pointAdjustForm.value = { userId: u.userId, username: u.username, mode: 'add', points: 10, reason: '' }
+  pointAdjustVisible.value = true
+}
+
+async function submitPointAdjust() {
+  const f = pointAdjustForm.value
+  if (!(f.points > 0) || !f.reason.trim()) return
+  pointAdjustSaving.value = true
+  const delta = f.mode === 'add' ? f.points : -f.points
+  try {
+    await adjustUserPoints({ userId: f.userId, points: delta, reason: f.reason.trim() })
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 后端未就绪：本地生效
+  }
+  pointsUsers.value = pointsUsers.value.map((u) =>
+    u.userId === f.userId
+      ? {
+          ...u,
+          balance: u.balance + delta,
+          totalEarned: delta > 0 ? u.totalEarned + delta : u.totalEarned,
+          totalSpent: delta < 0 ? u.totalSpent - delta : u.totalSpent,
+          lastChangeTime: formatTime(new Date())
+        }
+      : u
+  )
+  pointAdjustSaving.value = false
+  pointAdjustVisible.value = false
 }
 
 onBeforeUnmount(stopPolling)
@@ -1745,6 +2075,20 @@ onBeforeUnmount(stopPolling)
   box-shadow: inset 3px 0 0 #f5319d;
 }
 
+.side-points.active {
+  background: rgba(111, 174, 0, 0.1);
+  color: #5c9000;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #6fae00;
+}
+
+.side-pointsAdmin.active {
+  background: rgba(52, 70, 194, 0.1);
+  color: #3446c2;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #3446c2;
+}
+
 .back-btn {
   display: inline-flex;
   align-items: center;
@@ -1813,6 +2157,14 @@ onBeforeUnmount(stopPolling)
   background: #fdeaf4;
 }
 
+.main-points {
+  background: #f0f7e0;
+}
+
+.main-pointsAdmin {
+  background: #e9ecf9;
+}
+
 .panel {
   max-width: 1400px;
   margin: 0 auto;
@@ -1862,6 +2214,16 @@ onBeforeUnmount(stopPolling)
 .panel-publish {
   background: #fef3f9;
   border-top-color: #f5319d;
+}
+
+.panel-points {
+  background: #f7fbee;
+  border-top-color: #6fae00;
+}
+
+.panel-pointsAdmin {
+  background: #f1f3fc;
+  border-top-color: #3446c2;
 }
 
 /* ===== 统计管理（青色主题） ===== */
@@ -3307,5 +3669,268 @@ onBeforeUnmount(stopPolling)
   margin: 0 0 10px;
   font-size: 12px;
   color: #86909c;
+}
+
+/* ===== 积分明细（黄绿主题） ===== */
+.points-balance-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(111, 174, 0, 0.12), rgba(111, 174, 0, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(111, 174, 0, 0.25);
+}
+
+.pb-label {
+  font-size: 12px;
+  color: #86909c;
+}
+
+.pb-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #5c9000;
+  line-height: 1.2;
+}
+
+.pb-right {
+  display: flex;
+  gap: 28px;
+}
+
+.pb-item {
+  text-align: right;
+}
+
+.pb-num {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.pb-num.earn {
+  color: #00b42a;
+}
+
+.pb-num.spend {
+  color: #ff7d00;
+}
+
+.points-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.points-filter-btn {
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 1px solid #e5e6eb;
+  background: #fff;
+  font-size: 13px;
+  color: #4e5969;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.points-filter-btn.active {
+  background: #6fae00;
+  border-color: #6fae00;
+  color: #fff;
+  font-weight: 600;
+}
+
+.points-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.points-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 6px;
+  border-bottom: 1px solid #f2f3f5;
+  transition: background 0.15s;
+}
+
+.points-item:hover {
+  background: rgba(111, 174, 0, 0.05);
+}
+
+.points-type {
+  flex-shrink: 0;
+  width: 44px;
+  text-align: center;
+  padding: 3px 0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.points-type.pt-sign_in {
+  background: #e8f7ec;
+  color: #00b42a;
+}
+
+.points-type.pt-recharge {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+.points-type.pt-spend {
+  background: #f2f3f5;
+  color: #86909c;
+}
+
+.points-type.pt-admin_adjust {
+  background: #e9ecf9;
+  color: #3446c2;
+}
+
+.points-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.points-title {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: #1f2329;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-time {
+  margin: 0;
+  font-size: 12px;
+  color: #c9cdd4;
+}
+
+.points-delta {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.points-delta.earn {
+  color: #00b42a;
+}
+
+.points-delta.spend {
+  color: #ff7d00;
+}
+
+.points-empty {
+  padding: 28px 0;
+  text-align: center;
+  font-size: 13px;
+  color: #86909c;
+}
+
+/* ===== 积分管理（靛蓝主题） ===== */
+.rules-card {
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+}
+
+.rules-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.rules-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #3446c2;
+}
+
+.rules-save-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4d61e0, #3446c2);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+
+.rules-save-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.rules-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.rules-search {
+  width: 260px;
+  padding: 7px 10px;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1f2329;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.rules-search:focus {
+  border-color: #3446c2;
+}
+
+.pt-balance {
+  font-size: 14px;
+  color: #3446c2;
+}
+
+.pt-earn {
+  color: #00b42a;
+  font-weight: 600;
+}
+
+.pt-spend {
+  color: #ff7d00;
+  font-weight: 600;
+}
+
+/* 调整积分弹窗（复用 plan-form） */
+.radio-row {
+  gap: 18px;
+}
+
+.radio-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #1f2329;
+  cursor: pointer;
+}
+
+.radio-item input {
+  accent-color: #3446c2;
+  cursor: pointer;
+}
+
+.plan-save-btn.indigo {
+  background: linear-gradient(135deg, #4d61e0, #3446c2);
 }
 </style>

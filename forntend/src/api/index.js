@@ -318,4 +318,52 @@ export function removeAdminNotice(id) {
   return request.delete(`/admin/notices/${id}`)
 }
 
+/**
+ * 积分明细 - 积分概览（后端接口待补充）
+ * GET /user/points/summary  → { balance, totalEarned, totalSpent }
+ */
+export function getUserPointsSummary() {
+  return request.get('/user/points/summary')
+}
+
+/**
+ * 积分明细 - 积分流水（后端接口待补充）
+ * GET /user/points/records  → { list: [{ id, type: 'SIGN_IN'|'RECHARGE'|'SPEND'|'ADMIN_ADJUST', title, points, createTime }] }
+ */
+export function getUserPointsRecords() {
+  return request.get('/user/points/records')
+}
+
+/**
+ * 积分管理 - 规则查询（后端接口待补充）
+ * GET /admin/points/rules  → { signInBase, signInBonusPerDay, signInMax }
+ */
+export function getPointsRules() {
+  return request.get('/admin/points/rules')
+}
+
+/**
+ * 积分管理 - 保存规则（后端接口待补充）
+ * PUT /admin/points/rules
+ */
+export function savePointsRules(data) {
+  return request.put('/admin/points/rules', data)
+}
+
+/**
+ * 积分管理 - 用户积分总览（后端接口待补充）
+ * GET /admin/points/users  → { list: [{ userId, username, balance, totalEarned, totalSpent, lastChangeTime }] }
+ */
+export function listPointsUsers() {
+  return request.get('/admin/points/users')
+}
+
+/**
+ * 积分管理 - 调整积分（后端接口待补充）
+ * POST /admin/points/adjust  body: { userId, points(正加负减), reason }
+ */
+export function adjustUserPoints(data) {
+  return request.post('/admin/points/adjust', data)
+}
+
 export default request
