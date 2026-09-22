@@ -1,0 +1,29 @@
+package com.x.xaiagent.oss;
+
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+
+/**
+ * 文件存储抽象接口。
+ * 上层业务只依赖本接口，与具体存储厂商（阿里云 OSS / MinIO / 本地磁盘等）解耦，
+ * 后续接入新存储只需新增一个实现类，无需改动调用方。
+ */
+public interface FileStorageService {
+
+    /**
+     * 上传文件，返回可访问的 URL（或签名临时 URL）。
+     *
+     * @param file 待上传的文件
+     * @return 文件访问地址
+     * @throws IOException 读取文件流失败
+     */
+    String upload(MultipartFile file) throws IOException;
+
+    /**
+     * 根据 key 删除已上传的文件。
+     *
+     * @param key 文件唯一标识（即上传返回 URL 中路径部分）
+     */
+    void delete(String key);
+}
