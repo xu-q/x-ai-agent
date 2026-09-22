@@ -254,4 +254,68 @@ export function getPayStatus(orderId) {
   return request.get(`/membership/order/${orderId}/status`)
 }
 
+/**
+ * 会员中心 - 查询在售套餐（后端接口待补充）
+ * GET /membership/plans  → { list: [{ key, name, price, originalPrice, days, desc, onSale }] }
+ */
+export function getMembershipPlans() {
+  return request.get('/membership/plans')
+}
+
+/**
+ * 会员管理 - 套餐列表（后端接口待补充）
+ * GET /admin/membership/plans  → { list: [{ key, name, price, originalPrice, days, desc, onSale }] }
+ */
+export function listMembershipPlans() {
+  return request.get('/admin/membership/plans')
+}
+
+/**
+ * 会员管理 - 调整套餐（后端接口待补充）
+ * PUT /admin/membership/plans/{key}  body: { price, originalPrice, days, desc, onSale }
+ */
+export function updateMembershipPlan(key, data) {
+  return request.put(`/admin/membership/plans/${key}`, data)
+}
+
+/**
+ * 消息发布 - 通知列表（后端接口待补充）
+ * GET /admin/notices  → { list: [{ id, type, title, content, scope, status, readCount, totalCount, createTime }] }
+ */
+export function listAdminNotices() {
+  return request.get('/admin/notices')
+}
+
+/**
+ * 消息发布 - 新建通知（后端接口待补充）
+ * POST /admin/notices  body: { type, title, content, scope }
+ */
+export function createAdminNotice(data) {
+  return request.post('/admin/notices', data)
+}
+
+/**
+ * 消息发布 - 编辑通知（后端接口待补充）
+ * PUT /admin/notices/{id}
+ */
+export function updateAdminNotice(id, data) {
+  return request.put(`/admin/notices/${id}`, data)
+}
+
+/**
+ * 消息发布 - 发布/撤回通知（后端接口待补充）
+ * POST /admin/notices/{id}/publish | withdraw
+ */
+export function toggleAdminNotice(id, action) {
+  return request.post(`/admin/notices/${id}/${action}`)
+}
+
+/**
+ * 消息发布 - 删除通知（后端接口待补充）
+ * DELETE /admin/notices/{id}
+ */
+export function removeAdminNotice(id) {
+  return request.delete(`/admin/notices/${id}`)
+}
+
 export default request

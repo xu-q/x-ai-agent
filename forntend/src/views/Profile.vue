@@ -59,6 +59,16 @@
             <path d="M12 21V11"/>
             <path d="M17 21V5"/>
           </svg>
+          <!-- 会员管理 -->
+          <svg v-else-if="tab.key === 'plans'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+          <!-- 消息发布 -->
+          <svg v-else-if="tab.key === 'publish'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 11l18-5v12L3 14v-3z"/>
+            <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+          </svg>
           <!-- 用户管理 -->
           <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -180,12 +190,13 @@
 
           <div class="vip-plans">
             <div
-              v-for="plan in plans"
+              v-for="plan in onSalePlans"
               :key="plan.key"
               class="vip-card"
               :class="{ selected: selectedPlan === plan.key }"
               @click="selectedPlan = plan.key"
             >
+              <span v-if="plan.originalPrice > plan.price" class="vip-origin">¥{{ plan.originalPrice }}</span>
               <span class="vip-name">{{ plan.name }}</span>
               <span class="vip-price"><em>¥</em>{{ plan.price }}</span>
               <span class="vip-desc">{{ plan.desc }}</span>
@@ -413,6 +424,86 @@
 
           <p v-if="statsHint" class="mini-tip tip-warn">{{ statsHint }}</p>
         </template>
+        <!-- 会员管理 -->
+        <template v-else-if="activeTab === 'plans'">
+          <div class="plans-grid">
+            <div v-for="p in adminPlans" :key="p.key" class="plan-card" :class="{ off: p.onSale === false }">
+              <div class="plan-name">{{ p.name }}</div>
+              <div class="plan-price">
+                <strong>¥{{ p.price }}</strong>
+                <s v-if="p.originalPrice && p.originalPrice > p.price">¥{{ p.originalPrice }}</s>
+              </div>
+              <div class="plan-meta">{{ p.days }}天 · {{ p.desc }}</div>
+              <span class="plan-state" :class="p.onSale === false ? 'is-off' : 'is-on'">
+                {{ p.onSale === false ? '已下架' : '上架中' }}
+              </span>
+              <button class="plan-edit-btn" @click="openPlanEdit(p)">调整价格</button>
+            </div>
+          </div>
+          <p v-if="adminPlansHint" class="mini-tip tip-warn">{{ adminPlansHint }}</p>
+        </template>
+        <!-- 消息发布 -->
+        <template v-else-if="activeTab === 'publish'">
+          <div class="pub-toolbar">
+            <div class="pub-filters">
+              <select v-model="noticeTypeFilter" class="pub-select">
+                <option value="ALL">全部类型</option>
+                <option value="SYSTEM">系统</option>
+                <option value="ACTIVITY">活动</option>
+                <option value="UPDATE">更新</option>
+              </select>
+              <select v-model="noticeStatusFilter" class="pub-select">
+                <option value="ALL">全部状态</option>
+                <option value="DRAFT">草稿</option>
+                <option value="PUBLISHED">已发布</option>
+                <option value="WITHDRAWN">已撤回</option>
+              </select>
+            </div>
+            <button class="pub-create-btn" @click="openNoticeCreate">+ 新建通知</button>
+          </div>
+          <div class="pub-batch-bar">
+            <span class="pub-batch-count">已选 {{ selectedNoticeIds.length }} 项</span>
+            <button class="pub-op primary" :disabled="!selectedNoticeIds.length" @click="batchSetNoticeStatus('publish')">批量发布</button>
+            <button class="pub-op warn" :disabled="!selectedNoticeIds.length" @click="batchSetNoticeStatus('withdraw')">批量撤回</button>
+            <button class="pub-op danger" :disabled="!selectedNoticeIds.length" @click="batchRemoveNotices()">批量删除</button>
+          </div>
+          <div class="table-wrap">
+            <table class="pub-table">
+              <thead>
+                <tr>
+                  <th class="pub-check-col">
+                    <input type="checkbox" :checked="noticeAllSelected" @change="toggleNoticeAll" />
+                  </th>
+                  <th>标题</th>
+                  <th>类型</th>
+                  <th>范围</th>
+                  <th>状态</th>
+                  <th>已读 / 发送</th>
+                  <th>创建时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="n in filteredAdminNotices" :key="n.id">
+                  <td class="pub-check-col">
+                    <input v-model="selectedNoticeIds" type="checkbox" :value="n.id" />
+                  </td>
+                  <td class="pub-title-cell" @click="openNoticeEdit(n)">{{ n.title }}</td>
+                  <td><span class="pub-type" :class="`tt-${n.type.toLowerCase()}`">{{ typeLabel(n.type) }}</span></td>
+                  <td>{{ scopeLabels[n.scope] || '全员' }}</td>
+                  <td>
+                    <span class="pub-status" :class="`st-${n.status.toLowerCase()}`">{{ statusLabels[n.status] }}</span>
+                  </td>
+                  <td><span class="pub-read-badge">{{ n.readCount }}/{{ n.totalCount }}</span></td>
+                  <td>{{ n.createTime }}</td>
+                </tr>
+                <tr v-if="!filteredAdminNotices.length">
+                  <td colspan="7" class="pub-empty">暂无符合条件的通知</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="adminNoticesHint" class="mini-tip tip-warn">{{ adminNoticesHint }}</p>
+        </template>
       </section>
     </main>
 
@@ -437,6 +528,85 @@
         <p class="pay-status">{{ paid ? '支付成功，会员已开通' : '等待支付中...' }}</p>
       </div>
     </div>
+
+    <!-- 调价弹窗 -->
+    <div v-if="planEditVisible" class="pay-mask" @click.self="planEditVisible = false">
+      <div class="pay-dialog plan-dialog">
+        <button class="pay-close" title="关闭" @click="planEditVisible = false">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <h2 class="pay-title">调整价格 - {{ planForm.name }}</h2>
+        <div class="plan-form">
+          <label class="plan-field">
+            <span>现价（元）</span>
+            <input v-model.number="planForm.price" type="number" min="1" />
+          </label>
+          <label class="plan-field">
+            <span>划线原价（元）</span>
+            <input v-model.number="planForm.originalPrice" type="number" min="0" />
+          </label>
+          <label class="plan-field">
+            <span>时长（天）</span>
+            <input v-model.number="planForm.days" type="number" min="1" />
+          </label>
+          <label class="plan-field">
+            <span>权益描述</span>
+            <input v-model="planForm.desc" type="text" placeholder="展示在套餐卡上的一句话" />
+          </label>
+          <label class="plan-field row">
+            <span>上架销售</span>
+            <input v-model="planForm.onSale" type="checkbox" />
+          </label>
+        </div>
+        <button class="plan-save-btn" :disabled="planSaving || !(planForm.price > 0)" @click="savePlan">
+          {{ planSaving ? '保存中...' : '保存' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 新建/编辑通知弹窗 -->
+    <div v-if="noticeModalVisible" class="pay-mask" @click.self="noticeModalVisible = false">
+      <div class="pay-dialog plan-dialog">
+        <button class="pay-close" title="关闭" @click="noticeModalVisible = false">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <h2 class="pay-title">{{ noticeForm.id == null ? '新建通知' : '编辑通知' }}</h2>
+        <div class="plan-form">
+          <label class="plan-field">
+            <span>类型</span>
+            <select v-model="noticeForm.type" class="pub-select">
+              <option value="SYSTEM">系统</option>
+              <option value="ACTIVITY">活动</option>
+              <option value="UPDATE">更新</option>
+            </select>
+          </label>
+          <label class="plan-field">
+            <span>发布范围</span>
+            <select v-model="noticeForm.scope" class="pub-select">
+              <option value="ALL">全员</option>
+              <option value="VIP">仅会员</option>
+              <option value="GUEST">仅游客</option>
+            </select>
+          </label>
+          <label class="plan-field">
+            <span>标题</span>
+            <input v-model="noticeForm.title" type="text" maxlength="30" placeholder="不超过 30 字" />
+          </label>
+          <label class="plan-field">
+            <span>内容</span>
+            <textarea v-model="noticeForm.content" rows="4" placeholder="通知正文"></textarea>
+          </label>
+        </div>
+        <p class="pub-form-tip">保存后为草稿，可在列表中发布</p>
+        <button class="plan-save-btn" :disabled="noticeSaving || !noticeForm.title.trim() || !noticeForm.content.trim()" @click="saveNotice">
+          {{ noticeSaving ? '保存中...' : '保存草稿' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -455,8 +625,16 @@ import {
   markNoticeRead,
   markAllNoticesRead,
   getMembership,
+  getMembershipPlans,
   createPayOrder,
   getPayStatus,
+  listMembershipPlans,
+  updateMembershipPlan,
+  listAdminNotices,
+  createAdminNotice,
+  updateAdminNotice,
+  toggleAdminNotice,
+  removeAdminNotice,
   listConversations,
   listUsers,
   updateUser,
@@ -479,7 +657,9 @@ const baseTabs = [
 const adminTabs = [
   { key: 'messages', label: '对话管理' },
   { key: 'users', label: '用户管理' },
-  { key: 'stats', label: '统计管理' }
+  { key: 'stats', label: '统计管理' },
+  { key: 'plans', label: '会员管理' },
+  { key: 'publish', label: '消息发布' }
 ]
 // 仅管理员展示后台管理类 tab
 const tabs = computed(() => (isAdmin.value ? [...baseTabs, ...adminTabs] : baseTabs))
@@ -618,13 +798,31 @@ async function handleSign() {
 }
 
 // ===== 会员中心 =====
-const plans = [
-  { key: 'MONTH', name: '月卡', price: 25, desc: '按月开通' },
-  { key: 'QUARTER', name: '季卡', price: 68, desc: '折合 ¥22.7/月' },
-  { key: 'YEAR', name: '年卡', price: 238, desc: '折合 ¥19.8/月' }
+// 默认价兜底；接口就绪后以管理端调价结果为准
+const DEFAULT_PLANS = [
+  { key: 'MONTH', name: '月卡', price: 25, originalPrice: 35, days: 30, desc: '按月开通', onSale: true },
+  { key: 'QUARTER', name: '季卡', price: 68, originalPrice: 90, days: 90, desc: '折合 ¥22.7/月', onSale: true },
+  { key: 'YEAR', name: '年卡', price: 238, originalPrice: 300, days: 365, desc: '折合 ¥19.8/月', onSale: true }
 ]
+const plans = ref(DEFAULT_PLANS.map((p) => ({ ...p })))
+// 用户侧仅展示上架套餐
+const onSalePlans = computed(() => plans.value.filter((p) => p.onSale !== false))
 const selectedPlan = ref('MONTH')
-const selectedPlanInfo = computed(() => plans.find((p) => p.key === selectedPlan.value))
+const selectedPlanInfo = computed(() => plans.value.find((p) => p.key === selectedPlan.value))
+
+async function loadPlans() {
+  try {
+    const res = await getMembershipPlans()
+    const list = res.data?.list
+    if (Array.isArray(list) && list.length) {
+      plans.value = list
+      const cur = plans.value.find((p) => p.key === selectedPlan.value)
+      if (!cur || cur.onSale === false) {
+        selectedPlan.value = plans.value.find((p) => p.onSale !== false)?.key || selectedPlan.value
+      }
+    }
+  } catch { /* 后端未就绪时用默认价 */ }
+}
 
 const channels = [
   { key: 'ALIPAY', name: '支付宝', glyph: '支', color: '#1677ff' },
@@ -1097,6 +1295,12 @@ watch(
       loadStatsOverview()
       loadTrend()
     }
+    if (tab === 'plans' && !adminPlansLoaded.value) {
+      loadAdminPlans()
+    }
+    if (tab === 'publish' && !adminNoticesLoaded.value) {
+      loadAdminNotices()
+    }
   },
   { immediate: true }
 )
@@ -1105,9 +1309,214 @@ onMounted(() => {
   loadInfo()
   loadSignInfo()
   loadNotices()
+  loadPlans()
   loadMembership()
   if (isAdmin.value) loadConversations()
 })
+
+// ===== 会员管理（仅管理员）=====
+const adminPlans = ref([])
+const adminPlansLoaded = ref(false)
+const adminPlansHint = ref('')
+const planEditVisible = ref(false)
+const planSaving = ref(false)
+const planForm = ref({ key: '', name: '', price: 0, originalPrice: 0, days: 30, desc: '', onSale: true })
+
+async function loadAdminPlans() {
+  adminPlansLoaded.value = true
+  adminPlansHint.value = ''
+  try {
+    const res = await listMembershipPlans()
+    const list = res.data?.list
+    adminPlans.value = Array.isArray(list) && list.length ? list : DEFAULT_PLANS.map((p) => ({ ...p }))
+    if (!Array.isArray(list)) adminPlansHint.value = '会员接口未接入，当前展示默认套餐'
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    adminPlans.value = DEFAULT_PLANS.map((p) => ({ ...p }))
+    adminPlansHint.value = '会员接口未接入，当前展示默认套餐'
+  }
+}
+
+function openPlanEdit(plan) {
+  planForm.value = { ...plan }
+  planEditVisible.value = true
+}
+
+async function savePlan() {
+  const f = planForm.value
+  if (!(f.price > 0)) return
+  planSaving.value = true
+  try {
+    await updateMembershipPlan(f.key, {
+      price: f.price,
+      originalPrice: f.originalPrice,
+      days: f.days,
+      desc: f.desc,
+      onSale: f.onSale
+    })
+    applyPlanChange(f)
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 后端未就绪：本地生效并同步用户侧展示
+    applyPlanChange(f)
+  } finally {
+    planSaving.value = false
+    planEditVisible.value = false
+  }
+}
+
+// 调价后同步管理卡片与用户侧套餐卡
+function applyPlanChange(f) {
+  adminPlans.value = adminPlans.value.map((p) => (p.key === f.key ? { ...p, ...f } : p))
+  plans.value = plans.value.map((p) => (p.key === f.key ? { ...p, ...f } : p))
+}
+
+// ===== 消息发布（仅管理员）=====
+const scopeLabels = { ALL: '全员', VIP: '仅会员', GUEST: '仅游客' }
+const statusLabels = { DRAFT: '草稿', PUBLISHED: '已发布', WITHDRAWN: '已撤回' }
+const DEMO_ADMIN_NOTICES = [
+  { id: 1, type: 'SYSTEM', title: '系统维护通知', content: '平台将于今晚 23:00 - 24:00 进行例行维护，期间服务可能出现短暂波动。', scope: 'ALL', status: 'PUBLISHED', readCount: 96, totalCount: 128, createTime: '2026-09-21 23:46' },
+  { id: 2, type: 'ACTIVITY', title: '会员限时优惠', content: '年卡会员限时 8 折，进入会员中心即可参与。', scope: 'ALL', status: 'PUBLISHED', readCount: 64, totalCount: 128, createTime: '2026-09-21 21:22' },
+  { id: 3, type: 'UPDATE', title: '功能更新', content: '个人中心新增每日签到功能，快来连续签到赢好礼。', scope: 'ALL', status: 'PUBLISHED', readCount: 128, totalCount: 128, createTime: '2026-09-21 00:22' },
+  { id: 4, type: 'ACTIVITY', title: '双倍积分周末', content: '本周末签到可得双倍积分，记得每天回来签到。', scope: 'VIP', status: 'DRAFT', readCount: 0, totalCount: 0, createTime: '2026-09-20 18:40' },
+  { id: 5, type: 'SYSTEM', title: '新版本灰度发布', content: '新版本已开始灰度发布，如遇问题请及时反馈。', scope: 'ALL', status: 'WITHDRAWN', readCount: 30, totalCount: 126, createTime: '2026-09-19 10:05' }
+]
+const adminNotices = ref([])
+const adminNoticesLoaded = ref(false)
+const adminNoticesHint = ref('')
+const noticeTypeFilter = ref('ALL')
+const noticeStatusFilter = ref('ALL')
+const noticeModalVisible = ref(false)
+const noticeSaving = ref(false)
+const noticeForm = ref({ id: null, type: 'SYSTEM', title: '', content: '', scope: 'ALL' })
+
+const filteredAdminNotices = computed(() =>
+  adminNotices.value.filter(
+    (n) =>
+      (noticeTypeFilter.value === 'ALL' || n.type === noticeTypeFilter.value) &&
+      (noticeStatusFilter.value === 'ALL' || n.status === noticeStatusFilter.value)
+  )
+)
+
+async function loadAdminNotices() {
+  adminNoticesLoaded.value = true
+  adminNoticesHint.value = ''
+  try {
+    const res = await listAdminNotices()
+    const list = res.data?.list
+    adminNotices.value = Array.isArray(list) && list.length ? list : DEMO_ADMIN_NOTICES
+    if (!Array.isArray(list)) adminNoticesHint.value = '通知接口未接入，当前展示示例数据'
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    adminNotices.value = DEMO_ADMIN_NOTICES
+    adminNoticesHint.value = '通知接口未接入，当前展示示例数据'
+  }
+}
+
+function openNoticeCreate() {
+  noticeForm.value = { id: null, type: 'SYSTEM', title: '', content: '', scope: 'ALL' }
+  noticeModalVisible.value = true
+}
+
+function openNoticeEdit(n) {
+  noticeForm.value = { id: n.id, type: n.type, title: n.title, content: n.content, scope: n.scope }
+  noticeModalVisible.value = true
+}
+
+async function saveNotice() {
+  const f = noticeForm.value
+  if (!f.title.trim() || !f.content.trim()) return
+  noticeSaving.value = true
+  const now = formatTime(new Date())
+  try {
+    if (f.id == null) await createAdminNotice(f)
+    else await updateAdminNotice(f.id, f)
+    applyNoticeSave(f, now)
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 后端未就绪：本地生效
+    applyNoticeSave(f, now)
+  } finally {
+    noticeSaving.value = false
+    noticeModalVisible.value = false
+  }
+}
+
+function applyNoticeSave(f, now) {
+  if (f.id == null) {
+    adminNotices.value = [
+      { ...f, id: Date.now(), status: 'DRAFT', readCount: 0, totalCount: 0, createTime: now },
+      ...adminNotices.value
+    ]
+  } else {
+    adminNotices.value = adminNotices.value.map((n) => (n.id === f.id ? { ...n, ...f } : n))
+  }
+}
+
+// 复选框批量操作
+const selectedNoticeIds = ref([])
+const noticeAllSelected = computed(
+  () =>
+    filteredAdminNotices.value.length > 0 &&
+    filteredAdminNotices.value.every((n) => selectedNoticeIds.value.includes(n.id))
+)
+
+function toggleNoticeAll(e) {
+  selectedNoticeIds.value = e.target.checked ? filteredAdminNotices.value.map((n) => n.id) : []
+}
+
+// 批量发布/撤回：publish 对非已发布生效，withdraw 对已发布生效
+async function batchSetNoticeStatus(action) {
+  const ids = selectedNoticeIds.value
+  if (!ids.length) return
+  try {
+    await Promise.all(ids.map((id) => toggleAdminNotice(id, action)))
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 后端未就绪：本地生效
+  }
+  adminNotices.value = adminNotices.value.map((n) => {
+    if (!ids.includes(n.id)) return n
+    if (action === 'publish') {
+      return n.status === 'PUBLISHED'
+        ? n
+        : { ...n, status: 'PUBLISHED', readCount: 0, totalCount: 128 }
+    }
+    return n.status === 'PUBLISHED' ? { ...n, status: 'WITHDRAWN' } : n
+  })
+  selectedNoticeIds.value = []
+}
+
+async function batchRemoveNotices() {
+  const ids = selectedNoticeIds.value
+  if (!ids.length) return
+  try {
+    await Promise.all(ids.map((id) => removeAdminNotice(id)))
+  } catch (e) {
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 后端未就绪：本地生效
+  }
+  adminNotices.value = adminNotices.value.filter((n) => !ids.includes(n.id))
+  selectedNoticeIds.value = []
+}
 
 onBeforeUnmount(stopPolling)
 </script>
@@ -1322,6 +1731,20 @@ onBeforeUnmount(stopPolling)
   box-shadow: inset 3px 0 0 #0fc6c2;
 }
 
+.side-plans.active {
+  background: rgba(247, 186, 30, 0.12);
+  color: #d48806;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #f7ba1e;
+}
+
+.side-publish.active {
+  background: rgba(245, 49, 157, 0.08);
+  color: #f5319d;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #f5319d;
+}
+
 .back-btn {
   display: inline-flex;
   align-items: center;
@@ -1382,6 +1805,14 @@ onBeforeUnmount(stopPolling)
   background: #e4f5f5;
 }
 
+.main-plans {
+  background: #faf4e0;
+}
+
+.main-publish {
+  background: #fdeaf4;
+}
+
 .panel {
   max-width: 1400px;
   margin: 0 auto;
@@ -1421,6 +1852,16 @@ onBeforeUnmount(stopPolling)
 .panel-stats {
   background: #f2fbfb;
   border-top-color: #0fc6c2;
+}
+
+.panel-plans {
+  background: #fffcf2;
+  border-top-color: #f7ba1e;
+}
+
+.panel-publish {
+  background: #fef3f9;
+  border-top-color: #f5319d;
 }
 
 /* ===== 统计管理（青色主题） ===== */
@@ -1989,6 +2430,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .vip-card {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -2000,6 +2442,15 @@ onBeforeUnmount(stopPolling)
   background: #fff;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.vip-origin {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 12px;
+  color: #c9cdd4;
+  text-decoration: line-through;
 }
 
 .vip-card:hover {
@@ -2452,6 +2903,408 @@ onBeforeUnmount(stopPolling)
 }
 
 .pay-status {
+  font-size: 12px;
+  color: #86909c;
+}
+
+/* ===== 会员管理（金色主题） ===== */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(247, 186, 30, 0.45);
+  box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.plan-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(212, 136, 6, 0.18);
+}
+
+.plan-card.off {
+  opacity: 0.62;
+  border-style: dashed;
+}
+
+.plan-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.plan-price strong {
+  font-size: 28px;
+  color: #d48806;
+}
+
+.plan-price s {
+  font-size: 13px;
+  color: #c9cdd4;
+}
+
+.plan-meta {
+  font-size: 12px;
+  color: #86909c;
+}
+
+.plan-state {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-state.is-on {
+  background: #e8f7ec;
+  color: #00b42a;
+}
+
+.plan-state.is-off {
+  background: #f2f3f5;
+  color: #86909c;
+}
+
+.plan-edit-btn {
+  margin-top: 6px;
+  padding: 7px 0;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #f7ba1e, #d48806);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.plan-edit-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+/* 调价/通知弹窗表单（复用 pay-mask） */
+.plan-dialog {
+  width: 420px;
+  max-width: 92vw;
+}
+
+.plan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.plan-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  color: #4e5969;
+}
+
+.plan-field.row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-field input[type='number'],
+.plan-field input[type='text'],
+.plan-field textarea,
+.plan-field select {
+  padding: 8px 10px;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1f2329;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.plan-field input:focus,
+.plan-field textarea:focus,
+.plan-field select:focus {
+  border-color: #f7ba1e;
+}
+
+.plan-field textarea {
+  resize: vertical;
+}
+
+.plan-save-btn {
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f7ba1e, #d48806);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+
+.plan-save-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.plan-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== 消息发布（玫红主题） ===== */
+.pub-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pub-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.pub-select {
+  padding: 7px 10px;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #1f2329;
+  outline: none;
+  cursor: pointer;
+}
+
+.pub-create-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f5319d, #cb1e83);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.pub-create-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.pub-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pub-table th,
+.pub-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #f2f3f5;
+  white-space: nowrap;
+}
+
+.pub-table th {
+  color: #86909c;
+  font-weight: 600;
+  background: #fdf3f9;
+}
+
+.pub-table tbody tr {
+  transition: background 0.15s;
+}
+
+.pub-table tbody tr:hover {
+  background: rgba(245, 49, 157, 0.05);
+}
+
+.pub-title-cell {
+  color: #1f2329;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pub-title-cell:hover {
+  color: #f5319d;
+}
+
+.pub-type {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pub-type.tt-system {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.pub-type.tt-activity {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+.pub-type.tt-update {
+  background: #e8f3ff;
+  color: #165dff;
+}
+
+.pub-status {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pub-status.st-draft {
+  background: #f2f3f5;
+  color: #86909c;
+}
+
+.pub-status.st-published {
+  background: #e8f7ec;
+  color: #00b42a;
+}
+
+.pub-status.st-withdrawn {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+.pub-read-badge {
+  display: inline-block;
+  min-width: 52px;
+  text-align: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fdeaf4;
+  color: #cb1e83;
+  font-weight: 600;
+}
+
+/* 复选框列与批量操作栏 */
+.pub-check-col {
+  width: 40px;
+  text-align: center !important;
+}
+
+.pub-check-col input {
+  cursor: pointer;
+}
+
+.pub-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: #fdeaf4;
+  animation: pubBarIn 0.2s ease;
+}
+
+@keyframes pubBarIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pub-batch-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cb1e83;
+  margin-right: 4px;
+}
+
+.pub-op {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e6eb;
+  background: #fff;
+  font-size: 12px;
+  color: #4e5969;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pub-op:hover {
+  border-color: #f5319d;
+  color: #f5319d;
+}
+
+.pub-op:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pub-op.primary {
+  border-color: #00b42a;
+  color: #00b42a;
+}
+
+.pub-op.primary:hover {
+  background: #00b42a;
+  color: #fff;
+}
+
+.pub-op.warn {
+  border-color: #ff7d00;
+  color: #ff7d00;
+}
+
+.pub-op.warn:hover {
+  background: #ff7d00;
+  color: #fff;
+}
+
+.pub-op.danger:hover {
+  border-color: #f53f3f;
+  background: #f53f3f;
+  color: #fff;
+}
+
+.pub-empty {
+  text-align: center;
+  color: #86909c;
+  padding: 28px 0 !important;
+}
+
+.pub-form-tip {
+  margin: 0 0 10px;
   font-size: 12px;
   color: #86909c;
 }
