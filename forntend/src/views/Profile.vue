@@ -979,6 +979,7 @@ async function doUpload(file) {
     const merged = { ...user.value, avatar: url }
     user.value = merged
     saveAuthUser(merged, null)
+    showToast('头像已更新', 'success')
   } catch (e) {
     if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
     previewUrl.value = ''
@@ -1331,6 +1332,8 @@ async function batchSetStatus(status) {
       // 优先展示后端返回的失败原因
       const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
       showToast(`${failed} 个用户操作失败${firstReason ? `：${firstReason}` : '，请重试'}`, 'error')
+    } else {
+      showToast(`已${status === 1 ? '启用' : '禁用'} ${targets.length} 个用户`, 'success')
     }
     await loadUsers()
     selectedIds.value = []
@@ -1354,6 +1357,8 @@ async function batchDelete() {
       // 优先展示后端返回的失败原因
       const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
       showToast(`${failed} 个用户删除失败${firstReason ? `：${firstReason}` : '，请重试'}`, 'error')
+    } else {
+      showToast(`已删除 ${targets.length} 个用户`, 'success')
     }
     await loadUsers()
     selectedIds.value = []
@@ -1758,6 +1763,7 @@ async function saveNotice() {
     if (f.id == null) await createAdminNotice(f)
     else await updateAdminNotice(f.id, f)
     applyNoticeSave(f, now)
+    showToast(f.id == null ? '公告发布成功' : '公告已更新', 'success')
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
@@ -1765,6 +1771,7 @@ async function saveNotice() {
     }
     // 后端未就绪：本地生效
     applyNoticeSave(f, now)
+    showToast(e.message || '公告接口未接入，已本地生效', 'error')
   } finally {
     noticeSaving.value = false
     noticeModalVisible.value = false
@@ -1800,12 +1807,14 @@ async function batchSetNoticeStatus(action) {
   if (!ids.length) return
   try {
     await Promise.all(ids.map((id) => toggleAdminNotice(id, action)))
+    showToast(action === 'publish' ? `已发布 ${ids.length} 条公告` : `已撤回 ${ids.length} 条公告`, 'success')
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
     // 后端未就绪：本地生效
+    showToast(e.message || '公告接口未接入，已本地生效', 'error')
   }
   adminNotices.value = adminNotices.value.map((n) => {
     if (!ids.includes(n.id)) return n
@@ -1824,12 +1833,14 @@ async function batchRemoveNotices() {
   if (!ids.length) return
   try {
     await Promise.all(ids.map((id) => removeAdminNotice(id)))
+    showToast(`已删除 ${ids.length} 条公告`, 'success')
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
     // 后端未就绪：本地生效
+    showToast(e.message || '公告接口未接入，已本地生效', 'error')
   }
   adminNotices.value = adminNotices.value.filter((n) => !ids.includes(n.id))
   selectedNoticeIds.value = []
@@ -1923,14 +1934,14 @@ async function saveRules() {
   rulesHint.value = ''
   try {
     await savePointsRules(pointsRules.value)
-    rulesHint.value = '规则已保存'
+    showToast('积分规则已保存', 'success')
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
     // 后端未就绪：本地生效
-    rulesHint.value = '积分规则接口未接入，已本地记录'
+    showToast(e.message || '积分规则接口未接入，已本地记录', 'error')
   } finally {
     rulesSaving.value = false
   }
@@ -1964,6 +1975,8 @@ async function submitPointAdjust() {
   if (!(f.points > 0) || !f.reason.trim()) return
   pointAdjustSaving.value = true
   const delta = f.mode === 'add' ? f.points : -f.points
+  let backendOk = true
+  let backendMsg = ''
   try {
     await adjustUserPoints({ userId: f.userId, points: delta, reason: f.reason.trim() })
   } catch (e) {
@@ -1972,6 +1985,8 @@ async function submitPointAdjust() {
       return
     }
     // 后端未就绪：本地生效
+    backendOk = false
+    backendMsg = e.message || '积分接口未接入，已本地生效'
   }
   pointsUsers.value = pointsUsers.value.map((u) =>
     u.userId === f.userId
@@ -1986,6 +2001,11 @@ async function submitPointAdjust() {
   )
   pointAdjustSaving.value = false
   pointAdjustVisible.value = false
+  if (backendOk) {
+    showToast(`已${delta > 0 ? '增加' : '扣减'} ${f.points} 积分`, 'success')
+  } else {
+    showToast(backendMsg, 'error')
+  }
 }
 
 onBeforeUnmount(stopPolling)
