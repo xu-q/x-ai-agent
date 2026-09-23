@@ -7,34 +7,35 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.stream.Collectors;
 
 /**
  * 全局异常处理器：
  * - 统一返回 JSON 结构 {@link R}，不再返回裸字符串
- * - 依据异常类型设置正确 HTTP 状态码
- * - 兜底异常打印完整堆栈，避免问题被静默吞掉
- * - 不再单独捕获泛化的 RuntimeException，防止具体异常被错误归类
+ * - 业务异常走 {@link BusinessException}（HTTP 码由异常自身 status 决定，默认 400），
+ *   系统异常走 {@link SystenException}（HTTP 500），业务代码不再自行 try-catch 拼 R
+ * - 框架级异常（参数校验、上传超限）单独映射，兜底异常打印完整堆栈避免被静默吞掉
  */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
-    /** 业务异常：HTTP 400，业务码取自异常自身 */
+    /** 业务异常：code 同时用作 HTTP 状态码（默认 400，鉴权失效为 401）与响应体业务码 */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<R<Void>> handleBusiness(BusinessException e) {
         log.warn("业务异常: code={}, message={}", e.getCode(), e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(e.getCode())
                 .body(R.fail(e.getCode(), e.getMessage()));
     }
 
     /** 系统异常：HTTP 500，打印完整堆栈 */
     @ExceptionHandler(SystenException.class)
     public ResponseEntity<R<Void>> handleSystem(SystenException e) {
-        log.error("系统异常: code={}, message={}", e.getCode(), e.getMessage(), e);
+        log.error("系统异常: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(R.fail(e.getCode(), e.getMessage()));
+                .body(R.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
     }
 
     /** 参数校验失败（@Valid / @Validated）：HTTP 400，聚合字段级错误 */
@@ -45,15 +46,15 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         log.warn("参数校验失败: {}", msg);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(R.fail(400, msg));
+                .body(R.fail(HttpStatus.BAD_REQUEST.value(), msg));
     }
 
-    /** 非法参数：HTTP 400 */
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<R<Void>> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("非法参数: {}", e.getMessage());
+    /** 上传文件超出 multipart 大小限制（容器层在进入 Controller 前拦截）：HTTP 400 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<R<Void>> handleMaxUpload(MaxUploadSizeExceededException e) {
+        log.warn("上传文件超出大小限制: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(R.fail(400, e.getMessage()));
+                .body(R.fail(HttpStatus.BAD_REQUEST.value(), "上传文件过大，超出允许的大小限制"));
     }
 
     /** 兜底：未预期异常，HTTP 500，不向客户端泄露内部细节，但必须打印堆栈 */
@@ -61,6 +62,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<R<Void>> handleException(Exception e) {
         log.error("未预期异常", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(R.fail(500, "服务器内部错误"));
+                .body(R.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), "服务器内部错误"));
     }
 }

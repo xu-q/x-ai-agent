@@ -6,12 +6,15 @@ import com.x.xaiagent.comment.JwtTokenProvider;
 import com.x.xaiagent.constant.RoleConstants;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;
+import com.x.xaiagent.globalExceptionHandler.BusinessException;
 import com.x.xaiagent.mapper.UserMapper;
 import com.x.xaiagent.service.UserService;
 import com.x.xaiagent.vo.UserVO;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.mindrot.jbcrypt.BCrypt;
 import jakarta.annotation.Resource;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,10 +39,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public UserVO register(UserRegisterDTO dto) {
         if (!StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getPassword())) {
-            throw new IllegalArgumentException("用户名和密码不能为空");
+            throw new BusinessException("用户名和密码不能为空");
         }
         if (getByUsername(dto.getUsername()) != null) {
-            throw new IllegalArgumentException("用户名已存在");
+            throw new BusinessException("用户名已存在");
         }
         User u = new User();
         u.setUsername(dto.getUsername());
@@ -61,10 +64,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Map<String, Object> login(String username, String password) {
         User u = getByUsername(username);
         if (u == null || u.getStatus() == null || u.getStatus() != 1) {
-            throw new IllegalArgumentException("用户不存在或已禁用");
+            throw new BusinessException("用户不存在或已禁用");
         }
         if (!BCrypt.checkpw(password, u.getPassword())) {
-            throw new IllegalArgumentException("用户名或密码错误");
+            throw new BusinessException("用户名或密码错误");
         }
         String token = jwtTokenProvider.generateToken(u.getId(), u.getRole());
         Map<String, Object> result = new HashMap<>(2);
@@ -77,17 +80,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional(rollbackFor = Exception.class)
     public UserVO saveUser(UserRegisterDTO dto) {
         if (!StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getPassword())) {
-            throw new IllegalArgumentException("用户名和密码不能为空");
+            throw new BusinessException("用户名和密码不能为空");
         }
         if (getByUsername(dto.getUsername()) != null) {
-            throw new IllegalArgumentException("用户名已存在");
+            throw new BusinessException("用户名已存在");
         }
         User u = new User();
         u.setUsername(dto.getUsername());
         u.setPassword(BCrypt.hashpw(dto.getPassword(), BCrypt.gensalt()));
         u.setPhone(dto.getPhone());
         if (!StringUtils.hasText(dto.getRole())) {
-            throw new IllegalArgumentException("新建用户必须指定角色");
+            throw new BusinessException("新建用户必须指定角色");
         }
         u.setRole(dto.getRole());
         u.setStatus(1);
@@ -106,7 +109,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserVO updateUser(String id, UserRegisterDTO dto) {
         User u = getById(id);
         if (u == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new BusinessException("用户不存在");
         }
         if (StringUtils.hasText(dto.getPhone())) {
             u.setPhone(dto.getPhone());
@@ -133,7 +136,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserVO disableUser(String id, int status) {
         User u = getById(id);
         if (u == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new BusinessException("用户不存在");
         }
         u.setStatus(status);
         u.setUpdateTime(LocalDateTime.now());
@@ -150,7 +153,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserVO getUser(String id) {
         User u = getById(id);
         if (u == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new BusinessException("用户不存在");
         }
         return UserVO.from(u);
     }
@@ -164,13 +167,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public UserVO getCurrentUser(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
-        UserVO user = null;
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7).trim();
-            return user = getUser(jwtTokenProvider.parseToken(token).getSubject());
-
+        if (header == null || !header.startsWith("Bearer ")) {
+            return null;
         }
-        return user;
+        return getUser(parseUserId(header.substring(7).trim()));
+    }
+
+    /** 从 token 解析 userId；token 无效 / 过期统一抛 401 业务异常，避免落入 500 兜底 */
+    private String parseUserId(String token) {
+        try {
+            return jwtTokenProvider.parseToken(token).getSubject();
+        } catch (JwtException e) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED.value(), "登录已过期或 token 无效");
+        }
     }
 
     @Override
@@ -178,12 +187,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserVO updateProfile(UserRegisterDTO dto, HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("未登录或 token 缺失");
+            throw new BusinessException(HttpStatus.UNAUTHORIZED.value(), "未登录或 token 缺失");
         }
-        String userId = jwtTokenProvider.parseToken(header.substring(7).trim()).getSubject();
+        String userId = parseUserId(header.substring(7).trim());
         User u = getById(userId);
         if (u == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new BusinessException("用户不存在");
         }
         // 仅允许更新头像与手机号，角色 / 状态 / 密码不可通过此接口修改
         if (StringUtils.hasText(dto.getAvatar())) {

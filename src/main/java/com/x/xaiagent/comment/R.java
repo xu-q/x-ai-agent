@@ -1,6 +1,7 @@
 package com.x.xaiagent.comment;
 
 import lombok.Data;
+import org.springframework.http.HttpStatus;
 
 import java.io.Serializable;
 
@@ -17,7 +18,7 @@ public class R<T> implements Serializable {
 
     public static <T> R<T> ok(T data) {
         R<T> r = new R<>();
-        r.setCode(200);
+        r.setCode(HttpStatus.OK.value());
         r.setMessage("success");
         r.setData(data);
         return r;

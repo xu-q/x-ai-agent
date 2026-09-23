@@ -5,6 +5,7 @@ import com.x.xaiagent.context.UserContext;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -37,7 +38,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         String token = resolveToken(request);
         if (token == null || !jwtTokenProvider.validateToken(token)) {
             if (requireRole != null) {
-                writeJson(response, HttpServletResponse.SC_UNAUTHORIZED, "未登录或登录已过期");
+                writeJson(response, HttpStatus.UNAUTHORIZED.value(), "未登录或登录已过期");
                 return false;
             }
             // 无角色要求的方法，允许匿名访问
@@ -57,7 +58,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                 }
             }
             if (!allowed) {
-                writeJson(response, HttpServletResponse.SC_FORBIDDEN, "无权限访问");
+                writeJson(response, HttpStatus.FORBIDDEN.value(), "无权限访问");
                 return false;
             }
         }

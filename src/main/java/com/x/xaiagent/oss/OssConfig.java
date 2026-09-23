@@ -2,6 +2,7 @@ package com.x.xaiagent.oss;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.x.xaiagent.globalExceptionHandler.SystenException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +20,7 @@ public class OssConfig {
     public OSS ossClient() {
         String endpoint = props.getEndpoint();
         if (endpoint == null || endpoint.isBlank()) {
-            throw new IllegalStateException("未配置 app.oss.endpoint，请检查 application-local.yml");
+            throw new SystenException("未配置 app.oss.endpoint，请检查 application-local.yml");
         }
         if (!endpoint.startsWith("http")) {
             endpoint = "https://" + endpoint;

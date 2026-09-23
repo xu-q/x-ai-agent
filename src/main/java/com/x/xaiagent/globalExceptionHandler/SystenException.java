@@ -6,14 +6,7 @@ package com.x.xaiagent.globalExceptionHandler;
  */
 public class SystenException extends RuntimeException {
 
-    private final int code;
-
-    public SystenException(int code, String message) {
+    public SystenException(String message) {
         super(message);
-        this.code = code;
-    }
-
-    public int getCode() {
-        return code;
     }
 }

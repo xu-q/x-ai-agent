@@ -1,6 +1,7 @@
 package com.x.xaiagent.agent;
 
 import com.x.xaiagent.agent.model.AgentState;
+import com.x.xaiagent.globalExceptionHandler.SystenException;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.internal.StringUtil;
@@ -49,10 +50,10 @@ public abstract class BaseAgent {
      */
     public String run(String userPrompt) {
         if (this.state != AgentState.IDLE) {
-            throw new RuntimeException("Cannot run agent from state: " + this.state);
+            throw new SystenException("Cannot run agent from state: " + this.state);
         }
         if (StringUtil.isBlank(userPrompt)) {
-            throw new RuntimeException("Cannot run agent with empty user prompt");
+            throw new SystenException("Cannot run agent with empty user prompt");
         }
         // 更改状态
         state = AgentState.RUNNING;

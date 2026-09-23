@@ -965,7 +965,7 @@ function onFileChange(e) {
     uploadError.value = '仅支持 JPG / PNG 格式图片'
     return
   }
-  if (file.size > 2 * 1024 * 1024) {
+  if (file.size > 3 * 1024 * 1024) {
     uploadError.value = '图片大小不能超过 2MB'
     return
   }

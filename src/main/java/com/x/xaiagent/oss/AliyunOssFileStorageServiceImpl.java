@@ -3,8 +3,11 @@ package com.x.xaiagent.oss;
 import cn.hutool.core.util.IdUtil;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.ObjectMetadata;
+import com.x.xaiagent.globalExceptionHandler.BusinessException;
+import com.x.xaiagent.globalExceptionHandler.SystenException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,7 +37,7 @@ public class AliyunOssFileStorageServiceImpl implements FileStorageService, Disp
         this.props = props;
     }
 
-    private static final long MAX_SIZE = 10L * 1024 * 1024;
+    private static final long MAX_SIZE = 2L * 1024 * 1024;
 
     // 危险/可执行后缀黑名单，避免上传恶意脚本
     private static final Set<String> BLOCKED_EXT = Set.of(
@@ -44,7 +47,7 @@ public class AliyunOssFileStorageServiceImpl implements FileStorageService, Disp
     private static final Set<String> AVATAR_EXT = Set.of("jpg", "jpeg", "png", "gif", "webp", "bmp");
 
     @Override
-    public String upload(MultipartFile file) throws IOException {
+    public String upload(MultipartFile file) {
         checkCommon(file);
 
         String original = file.getOriginalFilename();
@@ -63,21 +66,23 @@ public class AliyunOssFileStorageServiceImpl implements FileStorageService, Disp
 
         try (InputStream in = file.getInputStream()) {
             ossClient.putObject(props.getBucketName(), key, in, meta);
+        } catch (IOException e) {
+            throw new SystenException("文件上传失败：" + e.getMessage());
         }
         return buildAccessUrl(key);
     }
 
     @Override
-    public String uploadAvatar(String userId, MultipartFile file) throws IOException {
+    public String uploadAvatar(String userId, MultipartFile file) {
         if (!StringUtils.hasText(userId)) {
-            throw new IllegalArgumentException("用户未登录");
+            throw new BusinessException(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
         checkCommon(file);
         String original = file.getOriginalFilename();
         String ext = (original != null && original.contains("."))
                 ? original.substring(original.lastIndexOf('.') + 1).toLowerCase() : "";
         if (!AVATAR_EXT.contains(ext)) {
-            throw new IllegalArgumentException("头像仅支持 jpg/jpeg/png/gif/webp/bmp");
+            throw new BusinessException("头像仅支持 jpg/jpeg/png/gif/webp/bmp");
         }
 
         // 固定 key：每个用户 OSS 上恒定只有一个头像对象，重传即覆盖旧图，杜绝孤儿文件
@@ -89,29 +94,31 @@ public class AliyunOssFileStorageServiceImpl implements FileStorageService, Disp
 
         try (InputStream in = file.getInputStream()) {
             ossClient.putObject(props.getBucketName(), key, in, meta);
+        } catch (IOException e) {
+            throw new SystenException("头像上传失败：" + e.getMessage());
         }
         return buildAccessUrl(key);
     }
 
     private void checkCommon(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("文件为空");
+            throw new BusinessException("文件为空");
         }
         if (file.getSize() > MAX_SIZE) {
-            throw new IllegalArgumentException("文件超过上限 10MB");
+            throw new BusinessException("文件超过上限 2MB");
         }
         String original = file.getOriginalFilename();
         String ext = (original != null && original.contains("."))
                 ? original.substring(original.lastIndexOf('.')).toLowerCase() : "";
         if (BLOCKED_EXT.contains(ext.replaceFirst("^\\.", ""))) {
-            throw new IllegalArgumentException("不允许的文件类型：" + ext);
+            throw new BusinessException("不允许的文件类型：" + ext);
         }
     }
 
     @Override
     public void delete(String key) {
         if (key == null || key.isBlank()) {
-            throw new IllegalArgumentException("key 为空");
+            throw new BusinessException("key 为空");
         }
         ossClient.deleteObject(props.getBucketName(), key);
     }
