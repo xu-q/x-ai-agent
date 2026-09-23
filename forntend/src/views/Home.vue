@@ -68,6 +68,61 @@
           <h2 class="app-name">{{ app.name }}</h2>
           <p class="app-desc">{{ app.desc }}</p>
         </div>
+
+        <!-- 天气卡片（静态展示，与恋爱大师并排，动画一致） -->
+        <div
+          class="weather-card"
+          @mousemove="onCardMove"
+          @mouseleave="onCardLeave"
+        >
+          <div class="weather-head">
+            <span class="weather-city">杭州</span>
+            <span class="weather-date">09/22 周二</span>
+          </div>
+          <svg class="weather-icon" viewBox="0 0 48 48" width="72" height="72">
+            <circle cx="19" cy="19" r="9" fill="#ffd53d"/>
+            <g stroke="#ffd53d" stroke-width="2.4" stroke-linecap="round">
+              <path d="M19 4.5v3.5M19 30v3.5M4.5 19H8M30 19h3.5M8.9 8.9l2.4 2.4M26.7 26.7l2.4 2.4M29.1 8.9l-2.4 2.4M11.3 26.7l-2.4 2.4"/>
+            </g>
+            <path d="M30 36.5a6.5 6.5 0 0 1 .9-12.9 9 9 0 0 1 17.3 2.4A5.7 5.7 0 0 1 46.5 36.5z" fill="#eef2ff" stroke="#c9d4ff" stroke-width="1.5"/>
+          </svg>
+          <div class="weather-temp">
+            <span class="temp-num">26</span><span class="temp-unit">°C</span>
+          </div>
+          <p class="weather-text">多云转晴</p>
+          <div class="weather-meta">
+            <span>湿度 62%</span><i></i>
+            <span>东南风 3级</span><i></i>
+            <span>空气 优</span>
+          </div>
+          <div class="weather-forecast">
+            <div class="forecast-item" v-for="d in weatherDays" :key="d.name">
+              <span class="f-name">{{ d.name }}</span>
+              <span class="f-icon" :style="{ color: d.color }">{{ d.emoji }}</span>
+              <span class="f-temp">{{ d.range }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 每日 AI 热点卡片（静态展示，动画一致） -->
+        <div
+          class="trends-card"
+          @mousemove="onCardMove"
+          @mouseleave="onCardLeave"
+        >
+          <div class="trends-head">
+            <span class="trends-title">🔥 每日 AI 热点</span>
+            <span class="trends-date">09/22</span>
+          </div>
+          <ul class="trends-list">
+            <li class="trend-item" v-for="(t, i) in aiTrends" :key="t.title">
+              <span class="trend-rank" :class="`rank-${i + 1}`">{{ i + 1 }}</span>
+              <span class="trend-title">{{ t.title }}</span>
+              <span class="trend-heat">{{ t.heat }}</span>
+            </li>
+          </ul>
+          <p class="trends-note">数据每日更新</p>
+        </div>
       </div>
     </div>
   </div>
@@ -129,26 +184,6 @@ function dotStyle(dot) {
   }
 }
 
-function onMouseMove(e) {
-  const now = performance.now()
-  if (now - lastSpawn < 26) return
-  lastSpawn = now
-  const dot = {
-    id: ++trailId,
-    x: e.clientX + (Math.random() * 8 - 4),
-    y: e.clientY + (Math.random() * 8 - 4),
-    size: 5 + Math.random() * 8,
-    dx: Math.random() * 36 - 18,
-    dy: -(8 + Math.random() * 24)
-  }
-  trail.value.push(dot)
-  if (trail.value.length > 40) trail.value.shift()
-  setTimeout(() => {
-    const idx = trail.value.findIndex((d) => d.id === dot.id)
-    if (idx !== -1) trail.value.splice(idx, 1)
-  }, 750)
-}
-
 // 卡片 3D 倾斜：根据鼠标在卡片内的位置旋转
 function onCardMove(e) {
   const card = e.currentTarget
@@ -168,7 +203,48 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('mousemove', onMouseMove)
+  clearTimeout(idleTimer)
 })
+
+// ===== 星尘拖尾：移动时跟随冒出，静止时在原地持续冒出 =====
+let lastX = 0
+let lastY = 0
+let idleTimer = null
+
+function spawnTrail(x, y) {
+  const dot = {
+    id: ++trailId,
+    x: x + (Math.random() * 8 - 4),
+    y: y + (Math.random() * 8 - 4),
+    size: 5 + Math.random() * 8,
+    dx: Math.random() * 36 - 18,
+    dy: -(8 + Math.random() * 24)
+  }
+  trail.value.push(dot)
+  if (trail.value.length > 40) trail.value.shift()
+  setTimeout(() => {
+    const idx = trail.value.findIndex((d) => d.id === dot.id)
+    if (idx !== -1) trail.value.splice(idx, 1)
+  }, 750)
+}
+
+function scheduleIdle() {
+  clearTimeout(idleTimer)
+  idleTimer = setTimeout(() => {
+    spawnTrail(lastX, lastY)
+    scheduleIdle()
+  }, 26)
+}
+
+function onMouseMove(e) {
+  const now = performance.now()
+  if (now - lastSpawn < 26) return
+  lastSpawn = now
+  lastX = e.clientX
+  lastY = e.clientY
+  spawnTrail(lastX, lastY)
+  scheduleIdle()
+}
 
 const apps = [
   {
@@ -178,6 +254,21 @@ const apps = [
     gradient: 'linear-gradient(135deg, #ff6b6b, #ee5a6f)',
     path: '/love'
   }
+]
+
+// ===== 天气卡片（静态展示数据，接口后续接入） =====
+const weatherDays = [
+  { name: '今天', emoji: '⛅', range: '19~28°', color: '#ffb02e' },
+  { name: '明天', emoji: '☀️', range: '20~29°', color: '#ffb02e' },
+  { name: '后天', emoji: '🌧️', range: '18~24°', color: '#4d9ef7' }
+]
+
+// ===== 每日 AI 热点（静态展示数据，接口后续接入） =====
+const aiTrends = [
+  { title: '多模态大模型突破视频理解', heat: '12.8w' },
+  { title: 'AI Agent 自主完成任务成趋势', heat: '9.6w' },
+  { title: '开源模型性能逼近闭源', heat: '7.3w' },
+  { title: 'AI 编程助手进入协同时代', heat: '5.1w' }
 ]
 
 function goTo(path) {
@@ -398,7 +489,7 @@ function goTo(path) {
   text-align: center;
   color: #fff;
   width: 100%;
-  max-width: 900px;
+  max-width: 1000px;
   padding: 40px 20px;
 }
 
@@ -411,20 +502,236 @@ function goTo(path) {
 
 .app-card {
   width: 280px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 20px;
   padding: 40px 28px;
-  transition: transform 0.12s ease-out, background 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: transform 0.12s ease-out, background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   cursor: pointer;
   will-change: transform;
 }
 
 .app-card:hover {
   transform: translateY(-8px);
-  background: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* ===== 天气卡片（与恋爱大师并排，液态玻璃，动画一致） ===== */
+.weather-card {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 22px 28px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: #fff;
+  text-align: center;
+  cursor: default;
+  will-change: transform;
+}
+
+.weather-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+}
+
+.weather-city {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.weather-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.weather-icon {
+  display: block;
+  margin: 12px auto 6px;
+  filter: drop-shadow(0 4px 10px rgba(255, 213, 61, 0.4));
+}
+
+.weather-temp {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  line-height: 1;
+}
+
+.temp-num {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.temp-unit {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.weather-text {
+  margin-top: 4px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.weather-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.weather-meta i {
+  width: 1px;
+  height: 11px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.weather-forecast {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.forecast-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.f-name {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.f-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.f-temp {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ===== 每日 AI 热点卡片（液态玻璃，动画一致） ===== */
+.trends-card {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 22px 22px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: default;
+  will-change: transform;
+}
+
+.trends-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.trends-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.trends-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.trends-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.trend-rank {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, #ff4d4f, #ff7a45);
+  color: #fff;
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, #ff7a45, #ffa940);
+  color: #fff;
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, #ffc53d, #ffd666);
+  color: #7a4b00;
+}
+
+.trend-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trend-heat {
+  flex: none;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.trends-note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .app-icon {
