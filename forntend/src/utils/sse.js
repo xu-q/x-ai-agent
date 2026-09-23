@@ -28,7 +28,15 @@ export function fetchSSE(url, params, { onMessage, onDone, onError }) {
   })
     .then(async (response) => {
       if (!response.ok) {
-        throw new Error(`请求失败，状态码：${response.status}`)
+        // 优先展示后端返回的提示信息（R 响应体的 message）
+        let msg = `请求失败，状态码：${response.status}`
+        try {
+          const body = await response.json()
+          if (body?.message) msg = body.message
+        } catch {
+          /* 非 JSON 响应保持默认提示 */
+        }
+        throw new Error(msg)
       }
       const reader = response.body.getReader()
       const decoder = new TextDecoder('utf-8')

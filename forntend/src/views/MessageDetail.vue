@@ -161,8 +161,9 @@ onMounted(async () => {
   try {
     const res = await listMessages(conversationId)
     messages.value = res.data || []
-  } catch {
-    error.value = '加载消息失败，请确认后端服务已启动'
+  } catch (e) {
+    // 直接展示后端返回的提示信息
+    error.value = e.message || '加载消息失败，请稍后再试'
   } finally {
     loading.value = false
   }

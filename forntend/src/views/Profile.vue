@@ -943,7 +943,8 @@ async function savePhone() {
       router.push('/')
       return
     }
-    phoneHint.value = e.response?.status === 400 ? e.response.data?.message || '手机号格式不正确' : '保存失败，请稍后再试'
+    // 直接展示后端返回的提示信息
+    phoneHint.value = e.message || '保存失败，请稍后再试'
   } finally {
     phoneSaving.value = false
   }
@@ -961,14 +962,7 @@ function onFileChange(e) {
   e.target.value = ''
   if (!file) return
   uploadError.value = ''
-  if (!['image/jpeg', 'image/png'].includes(file.type)) {
-    uploadError.value = '仅支持 JPG / PNG 格式图片'
-    return
-  }
-  if (file.size > 3 * 1024 * 1024) {
-    uploadError.value = '图片大小不能超过 2MB'
-    return
-  }
+  // 格式由 input accept 限制，大小等校验统一交给后端，直接展示后端提示信息
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = URL.createObjectURL(file)
   doUpload(file)
@@ -992,8 +986,8 @@ async function doUpload(file) {
         router.push('/')
         return
       }
-      // 落库失败不阻塞：本地仍生效，仅提示
-      uploadError.value = '头像已上传但保存失败，重新登录后可能丢失'
+      // 落库失败不阻塞：本地仍生效，仅提示（优先后端提示信息）
+      uploadError.value = e2.message || '头像已上传但保存失败，重新登录后可能丢失'
     }
     // 合并本地身份（token 传 null 不覆盖）
     const merged = { ...user.value, avatar: url }
@@ -1002,12 +996,13 @@ async function doUpload(file) {
   } catch (e) {
     if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
     previewUrl.value = ''
-    uploadError.value =
-      e.response?.status === 401
-        ? '登录已过期，请重新登录'
-        : e.response?.status === 500
-          ? '上传失败，请检查图片后重试'
-          : '头像上传失败，请稍后再试'
+    // 401 由全局拦截器清理登录态，这里跳转回首页
+    if (e.response?.status === 401) {
+      router.push('/')
+      return
+    }
+    // 直接展示后端返回的提示信息（如「文件超过上限 2MB」）
+    uploadError.value = e.message || '头像上传失败，请稍后再试'
   } finally {
     uploading.value = false
   }
@@ -1076,7 +1071,8 @@ async function handleSign() {
       router.push('/')
       return
     }
-    signError.value = '签到服务即将上线，敬请期待'
+    // 后端就绪后自动展示后端提示信息，未接入时保留占位文案
+    signError.value = e.response?.data?.message || '签到服务即将上线，敬请期待'
   } finally {
     signLoading.value = false
   }
@@ -1150,7 +1146,8 @@ async function createOrder() {
       router.push('/')
       return
     }
-    payError.value = '支付服务即将上线，敬请期待'
+    // 后端就绪后自动展示后端提示信息，未接入时保留占位文案
+    payError.value = e.response?.data?.message || '支付服务即将上线，敬请期待'
   } finally {
     payLoading.value = false
   }
@@ -1253,8 +1250,9 @@ async function loadConversations() {
   try {
     const res = await listConversations()
     conversations.value = res.data || []
-  } catch {
-    error.value = '加载会话列表失败，请确认后端服务已启动'
+  } catch (e) {
+    // 直接展示后端返回的提示信息
+    error.value = e.message || '加载会话列表失败，请稍后再试'
   } finally {
     loading.value = false
   }
@@ -1309,10 +1307,7 @@ async function loadUsers() {
     users.value = res.data || []
     usersLoaded.value = true
   } catch (e) {
-    usersError.value =
-      e.response?.status === 403
-        ? '无权限访问：需要管理员身份'
-        : '加载用户列表失败，请确认后端服务已启动'
+    usersError.value = e.message || '加载用户列表失败，请稍后再试'
   } finally {
     usersLoading.value = false
   }
@@ -1353,7 +1348,11 @@ async function batchSetStatus(status) {
       )
     )
     const failed = results.filter((r) => r.status === 'rejected').length
-    if (failed) actionError.value = `${failed} 个用户操作失败，请重试`
+    if (failed) {
+      // 优先展示后端返回的失败原因
+      const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
+      actionError.value = `${failed} 个用户操作失败${firstReason ? `：${firstReason}` : '，请重试'}`
+    }
     await loadUsers()
     selectedIds.value = []
   } finally {
@@ -1373,7 +1372,11 @@ async function batchDelete() {
   try {
     const results = await Promise.allSettled(targets.map((u) => removeUser(u.id)))
     const failed = results.filter((r) => r.status === 'rejected').length
-    if (failed) actionError.value = `${failed} 个用户删除失败，请重试`
+    if (failed) {
+      // 优先展示后端返回的失败原因
+      const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
+      actionError.value = `${failed} 个用户删除失败${firstReason ? `：${firstReason}` : '，请重试'}`
+    }
     await loadUsers()
     selectedIds.value = []
   } finally {

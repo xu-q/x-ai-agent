@@ -75,6 +75,11 @@ request.interceptors.response.use(
     if (err.response?.status === 401) {
       clearAuth()
     }
+    // 统一采用后端返回的提示信息：R 响应体的 message 直接覆盖 err.message，调用方读 e.message 即可
+    const backendMsg = err.response?.data?.message
+    if (backendMsg) {
+      err.message = backendMsg
+    }
     return Promise.reject(err)
   }
 )

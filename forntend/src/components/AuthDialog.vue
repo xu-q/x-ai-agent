@@ -119,7 +119,7 @@ async function guestLogin() {
     const { user: u, token } = res.data
     finish({ id: u.id, name: u.username, role: u.role || 'GUEST' }, token, { name: guestName, pwd: guestPwd })
   } catch (err) {
-    authError.value = `游客登录失败：${err.response?.data?.message || err.message}`
+    authError.value = `游客登录失败：${err.message}`
   } finally {
     authLoading.value = false
   }
@@ -162,7 +162,8 @@ async function submitAuth() {
     }
     finish({ id: u.id, name: u.username, role: u.role }, token)
   } catch (err) {
-    const msg = err.response?.data?.message || err.message || '请求失败'
+    // 拦截器已统一将后端 message 写入 err.message
+    const msg = err.message || '请求失败'
     authError.value = authTab.value === 'register' ? `注册失败：${msg}` : `登录失败：${msg}`
   } finally {
     authLoading.value = false
