@@ -393,18 +393,57 @@ async function submitAuth() {
   cursor: not-allowed;
 }
 
-.auth-error {
-  font-size: 12px;
-  color: var(--ad-error);
-  text-align: left;
+/* 错误 / 成功提示：淡色底横幅 + 图标（与全站提示样式统一） */
+.auth-error,
+.auth-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
   margin: 0;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  animation: tipBannerIn 0.25s ease;
+}
+
+.auth-error {
+  color: var(--ad-error);
+  background: color-mix(in srgb, var(--ad-error) 10%, transparent);
 }
 
 .auth-success {
-  font-size: 12px;
-  color: #4caf50;
-  text-align: left;
-  margin: 0;
+  color: #00b42a;
+  background: #e8ffea;
+}
+
+.auth-error::before,
+.auth-success::before {
+  content: '';
+  flex: none;
+  width: 13px;
+  height: 13px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+
+.auth-success::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpolyline points='22 4 12 14.01 9 11.01'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpolyline points='22 4 12 14.01 9 11.01'/%3E%3C/svg%3E");
+}
+
+@keyframes tipBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-link {

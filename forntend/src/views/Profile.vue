@@ -146,11 +146,6 @@
                 {{ d.label }}
               </span>
             </div>
-            <p v-if="signSuccess" class="mini-tip tip-success">
-              签到成功，已连续签到 {{ sign.continuousDays }} 天
-              <template v-if="signPointsEarned != null">，+{{ signPointsEarned }} 积分</template>
-            </p>
-            <p v-if="signError" class="mini-tip tip-warn">{{ signError }}</p>
           </div>
 
           <div class="profile-card">
@@ -218,8 +213,6 @@
                 <span class="info-value">{{ info.createTime ? formatTime(info.createTime) : '-' }}</span>
               </div>
               <p v-if="infoError" class="mini-tip">{{ infoError }}</p>
-              <p v-if="phoneHint" class="mini-tip" :class="phoneHint.includes('失败') ? 'tip-warn' : 'tip-success'">{{ phoneHint }}</p>
-              <p v-if="uploadError" class="mini-tip tip-warn">{{ uploadError }}</p>
             </div>
           </div>
         </template>
@@ -277,7 +270,6 @@
           <button class="pay-btn" :disabled="payLoading" @click="createOrder">
             {{ payLoading ? '正在创建订单...' : `立即开通 ¥${selectedPlanInfo.price}` }}
           </button>
-          <p v-if="payError" class="mini-tip tip-warn">{{ payError }}</p>
         </template>
 
         <!-- 系统通知（所有用户） -->
@@ -444,8 +436,7 @@
           <p v-else-if="usersError" class="tip tip-error">{{ usersError }}</p>
           <p v-else-if="users.length === 0" class="tip tip-empty">暂无用户数据</p>
           <template v-else>
-            <p v-if="actionError" class="action-error">{{ actionError }}</p>
-            <p v-else-if="filteredUsers.length === 0" class="tip tip-empty">未找到匹配的用户</p>
+            <p v-if="filteredUsers.length === 0" class="tip tip-empty">未找到匹配的用户</p>
             <table v-else class="conv-table user-table">
               <thead>
                 <tr>
@@ -812,6 +803,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { showToast } from '../utils/toast'
 import { useRouter } from 'vue-router'
 import {
   saveAuthUser,
@@ -917,11 +909,9 @@ async function loadInfo() {
 const editingPhone = ref(false)
 const phoneDraft = ref('')
 const phoneSaving = ref(false)
-const phoneHint = ref('')
 
 function startEditPhone() {
   phoneDraft.value = info.value.phone || ''
-  phoneHint.value = ''
   editingPhone.value = true
 }
 
@@ -929,14 +919,13 @@ async function savePhone() {
   const phone = phoneDraft.value.trim()
   if (!/^1\d{10}$/.test(phone)) return
   phoneSaving.value = true
-  phoneHint.value = ''
   try {
     const res = await updateMyProfile({ phone })
     info.value.phone = res.data?.phone || phone
     // 同步本地身份（token 传 null 不覆盖）
     user.value = { ...user.value, phone: info.value.phone }
     saveAuthUser(user.value, null)
-    phoneHint.value = '手机号已更新'
+    showToast('手机号已更新', 'success')
     editingPhone.value = false
   } catch (e) {
     if (e.response?.status === 401) {
@@ -944,7 +933,7 @@ async function savePhone() {
       return
     }
     // 直接展示后端返回的提示信息
-    phoneHint.value = e.message || '保存失败，请稍后再试'
+    showToast(e.message || '保存失败，请稍后再试', 'error')
   } finally {
     phoneSaving.value = false
   }
@@ -954,14 +943,12 @@ async function savePhone() {
 const fileInput = ref(null)
 const previewUrl = ref('')
 const uploading = ref(false)
-const uploadError = ref('')
 const displayAvatar = computed(() => previewUrl.value || user.value?.avatar || '')
 
 function onFileChange(e) {
   const file = e.target.files[0]
   e.target.value = ''
   if (!file) return
-  uploadError.value = ''
   // 格式由 input accept 限制，大小等校验统一交给后端，直接展示后端提示信息
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = URL.createObjectURL(file)
@@ -970,7 +957,6 @@ function onFileChange(e) {
 
 async function doUpload(file) {
   uploading.value = true
-  uploadError.value = ''
   try {
     const res = await uploadAvatar(file)
     // 后端 R<String>：data 直接是头像 URL
@@ -987,7 +973,7 @@ async function doUpload(file) {
         return
       }
       // 落库失败不阻塞：本地仍生效，仅提示（优先后端提示信息）
-      uploadError.value = e2.message || '头像已上传但保存失败，重新登录后可能丢失'
+      showToast(e2.message || '头像已上传但保存失败，重新登录后可能丢失', 'error')
     }
     // 合并本地身份（token 传 null 不覆盖）
     const merged = { ...user.value, avatar: url }
@@ -1002,7 +988,7 @@ async function doUpload(file) {
       return
     }
     // 直接展示后端返回的提示信息（如「文件超过上限 2MB」）
-    uploadError.value = e.message || '头像上传失败，请稍后再试'
+    showToast(e.message || '头像上传失败，请稍后再试', 'error')
   } finally {
     uploading.value = false
   }
@@ -1011,8 +997,6 @@ async function doUpload(file) {
 // ===== 每日签到 =====
 const sign = ref({ signedToday: false, continuousDays: 0, monthDays: 0, recentDates: [] })
 const signLoading = ref(false)
-const signError = ref('')
-const signSuccess = ref(false)
 // 签到获得的积分（后端返回 earnedPoints 时展示）
 const signPointsEarned = ref(null)
 
@@ -1045,8 +1029,6 @@ async function loadSignInfo() {
 
 async function handleSign() {
   signLoading.value = true
-  signError.value = ''
-  signSuccess.value = false
   try {
     const res = await doSign()
     // 后端返回全量数据则整体替换，否则本地补今天的记录
@@ -1064,15 +1046,17 @@ async function handleSign() {
       sign.value.monthDays += 1
       sign.value.signedToday = true
     }
-    signSuccess.value = true
-    setTimeout(() => (signSuccess.value = false), 3000)
+    showToast(
+      `签到成功，已连续签到 ${sign.value.continuousDays} 天${signPointsEarned.value != null ? `，+${signPointsEarned.value} 积分` : ''}`,
+      'success'
+    )
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
     // 后端就绪后自动展示后端提示信息，未接入时保留占位文案
-    signError.value = e.response?.data?.message || '签到服务即将上线，敬请期待'
+    showToast(e.message || '签到服务即将上线，敬请期待', 'error')
   } finally {
     signLoading.value = false
   }
@@ -1124,7 +1108,6 @@ async function loadMembership() {
 // ===== 支付弹窗与轮询 =====
 const payVisible = ref(false)
 const payLoading = ref(false)
-const payError = ref('')
 const payQr = ref('')
 const payOrderId = ref('')
 const paid = ref(false)
@@ -1133,7 +1116,6 @@ let pollFails = 0
 
 async function createOrder() {
   payLoading.value = true
-  payError.value = ''
   try {
     const res = await createPayOrder(selectedPlan.value, selectedChannel.value)
     payOrderId.value = res.data?.orderId || ''
@@ -1147,7 +1129,7 @@ async function createOrder() {
       return
     }
     // 后端就绪后自动展示后端提示信息，未接入时保留占位文案
-    payError.value = e.response?.data?.message || '支付服务即将上线，敬请期待'
+    showToast(e.message || '支付服务即将上线，敬请期待', 'error')
   } finally {
     payLoading.value = false
   }
@@ -1171,7 +1153,7 @@ function startPolling() {
     } catch {
       if (++pollFails >= 3) {
         stopPolling()
-        payError.value = '支付状态查询失败，支付服务即将上线'
+        showToast('支付状态查询失败，支付服务即将上线', 'error')
         closePay()
       }
     }
@@ -1266,7 +1248,6 @@ function goDetail(conversationId) {
 const users = ref([])
 const usersLoading = ref(false)
 const usersError = ref('')
-const actionError = ref('')
 const userSearch = ref('')
 const roleFilter = ref('') // '' 全部 | ADMIN | USER | GUEST
 const roleOptions = [
@@ -1301,7 +1282,6 @@ const filteredUsers = computed(() => {
 async function loadUsers() {
   usersLoading.value = true
   usersError.value = ''
-  actionError.value = ''
   try {
     const res = await listUsers()
     users.value = res.data || []
@@ -1336,11 +1316,10 @@ function pickTargets() {
 async function batchSetStatus(status) {
   const targets = pickTargets()
   if (!targets.length) {
-    actionError.value = '不能对当前登录账号执行批量操作'
+    showToast('不能对当前登录账号执行批量操作', 'error')
     return
   }
   batchBusy.value = true
-  actionError.value = ''
   try {
     const results = await Promise.allSettled(
       targets.map((u) =>
@@ -1351,7 +1330,7 @@ async function batchSetStatus(status) {
     if (failed) {
       // 优先展示后端返回的失败原因
       const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
-      actionError.value = `${failed} 个用户操作失败${firstReason ? `：${firstReason}` : '，请重试'}`
+      showToast(`${failed} 个用户操作失败${firstReason ? `：${firstReason}` : '，请重试'}`, 'error')
     }
     await loadUsers()
     selectedIds.value = []
@@ -1363,19 +1342,18 @@ async function batchSetStatus(status) {
 async function batchDelete() {
   const targets = pickTargets()
   if (!targets.length) {
-    actionError.value = '不能对当前登录账号执行批量操作'
+    showToast('不能对当前登录账号执行批量操作', 'error')
     return
   }
   if (!window.confirm(`确定删除选中的 ${targets.length} 个用户吗？该操作不可恢复。`)) return
   batchBusy.value = true
-  actionError.value = ''
   try {
     const results = await Promise.allSettled(targets.map((u) => removeUser(u.id)))
     const failed = results.filter((r) => r.status === 'rejected').length
     if (failed) {
       // 优先展示后端返回的失败原因
       const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
-      actionError.value = `${failed} 个用户删除失败${firstReason ? `：${firstReason}` : '，请重试'}`
+      showToast(`${failed} 个用户删除失败${firstReason ? `：${firstReason}` : '，请重试'}`, 'error')
     }
     await loadUsers()
     selectedIds.value = []
@@ -2926,10 +2904,6 @@ onBeforeUnmount(stopPolling)
   font-weight: 700;
 }
 
-.tip-success {
-  color: #00b42a;
-}
-
 .profile-card {
   display: flex;
   gap: 32px;
@@ -3025,13 +2999,50 @@ onBeforeUnmount(stopPolling)
 }
 
 .mini-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 8px;
-  font-size: 12px;
-  color: #86909c;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 100%;
+  background: #f2f3f5;
+  color: #4e5969;
+  animation: miniTipIn 0.25s ease;
+}
+
+/* 图标用 currentColor + mask，随语义色自动变色 */
+.mini-tip::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E") no-repeat center / contain;
 }
 
 .tip-warn {
+  background: #fff3e8;
   color: #ff7d00;
+}
+
+.tip-warn::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+}
+
+@keyframes miniTipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ===== 会员中心 ===== */
@@ -3198,7 +3209,23 @@ onBeforeUnmount(stopPolling)
 }
 
 .tip-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: #ffece8;
+  border-radius: 8px;
   color: #f53f3f;
+}
+
+.tip-error::before {
+  content: '';
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E") no-repeat center / contain;
 }
 
 /* 空状态：竖排 + 浅灰文档插画 */
@@ -3333,15 +3360,6 @@ onBeforeUnmount(stopPolling)
 .rules-save-btn:active:not(:disabled),
 .plan-save-btn:active:not(:disabled) {
   transform: translateY(0) scale(0.96);
-}
-
-.action-error {
-  margin-bottom: 12px;
-  padding: 10px 14px;
-  background: #ffece8;
-  border-radius: 6px;
-  color: #f53f3f;
-  font-size: 14px;
 }
 
 .sortable {
