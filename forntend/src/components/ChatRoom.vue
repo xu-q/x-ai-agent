@@ -480,9 +480,11 @@ defineExpose({ appendAiChunk, finishAiMessage, showAiError })
 }
 
 .chat-title {
+  font-family: var(--font-display);
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: 1px;
 }
 
 .chat-id {

@@ -181,6 +181,7 @@ function fmtAxis(v) {
 }
 
 .axis-text {
+  font-family: var(--font-num);
   font-size: 11px;
   fill: #86909c;
 }

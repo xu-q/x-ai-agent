@@ -11,7 +11,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import ChatRoom from '../components/ChatRoom.vue'
 import { fetchSSE } from '../utils/sse'
 import { AGENT_SSE_URL, generateChatId } from '../api'
@@ -24,6 +24,12 @@ let currentController = null
 // 进入页面后自动生成聊天室 ID，用于区分不同会话
 onMounted(() => {
   chatId.value = generateChatId()
+})
+
+// 离开页面时中断未完成的流式请求，避免后台持续下载
+onBeforeUnmount(() => {
+  currentController?.abort()
+  currentController = null
 })
 
 function handleSend(message) {

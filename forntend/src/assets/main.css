@@ -1,3 +1,29 @@
+/* ============================================
+   全局设计令牌（Design Tokens）
+   ============================================ */
+:root {
+  /* 品牌星云紫：深空底 → 亮紫点缀 */
+  --brand-950: #0d0a1f;
+  --brand-900: #171030;
+  --brand-800: #241647;
+  --brand-700: #35205e;
+  --brand-500: #7c3aed;
+  --brand-400: #a78bfa;
+  --brand-300: #c4b5fd;
+
+  /* 字体：衬线展示 / 中文正文 / 等宽数字 */
+  --font-display: 'Noto Serif SC', 'Source Han Serif SC', 'STZhongsong', 'SimSun', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'HarmonyOS Sans SC', 'MiSans',
+    'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-num: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Roboto Mono', monospace;
+
+  /* 液态玻璃 */
+  --glass-bg: rgba(255, 255, 255, 0.12);
+  --glass-bg-strong: rgba(255, 255, 255, 0.16);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-blur: blur(20px) saturate(150%);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -12,10 +38,10 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-body);
   background-color: #f0f2f5;
   color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
 }
 
 button {
@@ -31,15 +57,60 @@ textarea {
   font-family: inherit;
 }
 
+/* 文字选中色：中性灰蓝（浅色/深色背景均不突兀） */
+::selection {
+  background: rgba(86, 110, 148, 0.28);
+  color: inherit;
+}
+
+/* 自定义滚动条：胶囊形 + 悬停加深 */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+  background: rgba(124, 58, 237, 0.28);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.5);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* 路由切换过渡：淡入 + 上浮 */
+.route-enter-active {
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+
+.route-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.route-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.route-leave-to {
+  opacity: 0;
+}
+
+/* 无障碍：用户偏好减少动效时全局降级 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

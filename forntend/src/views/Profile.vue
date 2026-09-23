@@ -31,6 +31,7 @@
           :key="tab.key"
           class="side-item"
           :class="[{ active: activeTab === tab.key }, `side-${tab.key}`]"
+          :style="{ '--tab-color': tab.color }"
           @click="activeTab = tab.key"
         >
           <!-- 基本资料 -->
@@ -113,6 +114,10 @@
       <section class="panel" :class="`panel-${activeTab}`">
         <!-- 个人中心 -->
         <template v-if="activeTab === 'profile'">
+          <header class="panel-head">
+            <h2 class="panel-title">个人中心</h2>
+            <span class="panel-tag">Profile</span>
+          </header>
           <!-- 每日签到 -->
           <div class="sign-card">
             <div class="sign-head">
@@ -221,6 +226,10 @@
 
         <!-- 会员中心 -->
         <template v-else-if="activeTab === 'vip'">
+          <header class="panel-head">
+            <h2 class="panel-title">会员中心</h2>
+            <span class="panel-tag">Vip Center</span>
+          </header>
           <div class="vip-status" :class="{ 'vip-on': vip.isVip }">
             <div class="vip-status-icon">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -273,6 +282,10 @@
 
         <!-- 系统通知（所有用户） -->
         <template v-else-if="activeTab === 'notice'">
+          <header class="panel-head">
+            <h2 class="panel-title">系统通知</h2>
+            <span class="panel-tag">Notifications</span>
+          </header>
           <div class="notice-toolbar">
             <div class="notice-filter">
               <button :class="{ on: noticeFilter === 'all' }" @click="noticeFilter = 'all'">全部</button>
@@ -284,7 +297,7 @@
           </div>
           <p v-if="noticesLoading" class="tip">加载中...</p>
           <p v-else-if="noticesError" class="tip tip-error">{{ noticesError }}</p>
-          <p v-else-if="filteredNotices.length === 0" class="tip">暂无通知</p>
+          <p v-else-if="filteredNotices.length === 0" class="tip tip-empty">暂无通知</p>
           <ul v-else class="notice-timeline">
             <li
               v-for="item in displayNotices"
@@ -312,6 +325,10 @@
         </template>
         <!-- 积分明细 -->
         <template v-else-if="activeTab === 'points'">
+          <header class="panel-head">
+            <h2 class="panel-title">积分明细</h2>
+            <span class="panel-tag">My Points</span>
+          </header>
           <div class="points-balance-card">
             <div class="pb-left">
               <p class="pb-label">当前积分</p>
@@ -353,6 +370,10 @@
 
         <!-- 对话管理（仅管理员） -->
         <template v-else-if="activeTab === 'messages'">
+          <header class="panel-head">
+            <h2 class="panel-title">对话管理</h2>
+            <span class="panel-tag">Conversations</span>
+          </header>
           <div class="toolbar">
             <input
               v-model.trim="searchText"
@@ -363,8 +384,8 @@
           </div>
           <p v-if="loading" class="tip">加载中...</p>
           <p v-else-if="error" class="tip tip-error">{{ error }}</p>
-          <p v-else-if="conversations.length === 0" class="tip">暂无会话数据</p>
-          <p v-else-if="filteredConversations.length === 0" class="tip">未找到匹配的会话</p>
+          <p v-else-if="conversations.length === 0" class="tip tip-empty">暂无会话数据</p>
+          <p v-else-if="filteredConversations.length === 0" class="tip tip-empty">未找到匹配的会话</p>
           <table v-else class="conv-table">
             <thead>
               <tr>
@@ -399,6 +420,10 @@
 
         <!-- 用户管理（仅管理员） -->
         <template v-else-if="activeTab === 'users'">
+          <header class="panel-head">
+            <h2 class="panel-title">用户管理</h2>
+            <span class="panel-tag">Users</span>
+          </header>
           <div class="toolbar">
             <input
               v-model.trim="userSearch"
@@ -406,12 +431,7 @@
               type="text"
               placeholder="按用户名 / ID / 手机号搜索"
             />
-            <select v-model="roleFilter" class="role-select" title="按角色筛选">
-              <option value="">全部角色</option>
-              <option value="ADMIN">管理员</option>
-              <option value="USER">用户</option>
-              <option value="GUEST">游客</option>
-            </select>
+            <ThemeSelect v-model="roleFilter" :options="roleOptions" title="按角色筛选" class="filter-gap" />
             <button class="refresh-btn" @click="loadUsers">刷新</button>
             <div v-if="selectedIds.length" class="batch-bar">
               <span class="batch-info">已选 {{ selectedIds.length }} 项</span>
@@ -422,10 +442,10 @@
           </div>
           <p v-if="usersLoading" class="tip">加载中...</p>
           <p v-else-if="usersError" class="tip tip-error">{{ usersError }}</p>
-          <p v-else-if="users.length === 0" class="tip">暂无用户数据</p>
+          <p v-else-if="users.length === 0" class="tip tip-empty">暂无用户数据</p>
           <template v-else>
             <p v-if="actionError" class="action-error">{{ actionError }}</p>
-            <p v-else-if="filteredUsers.length === 0" class="tip">未找到匹配的用户</p>
+            <p v-else-if="filteredUsers.length === 0" class="tip tip-empty">未找到匹配的用户</p>
             <table v-else class="conv-table user-table">
               <thead>
                 <tr>
@@ -474,18 +494,20 @@
 
         <!-- 统计管理（仅管理员） -->
         <template v-else-if="activeTab === 'stats'">
-          <div class="stats-toolbar">
+          <header class="panel-head">
+            <h2 class="panel-title">统计管理</h2>
+            <span class="panel-tag">Statistics</span>
             <div class="range-switch">
               <button :class="{ on: trendDays === 7 }" @click="setRange(7)">近 7 天</button>
               <button :class="{ on: trendDays === 30 }" @click="setRange(30)">近 30 天</button>
             </div>
-          </div>
+          </header>
 
           <!-- 指标卡 -->
           <div class="stat-cards">
-            <div v-for="c in statCards" :key="c.label" class="stat-card">
+            <div v-for="(c, i) in statCards" :key="c.label" class="stat-card">
               <span class="stat-label">{{ c.label }}</span>
-              <strong class="stat-value">{{ fmtStat(c.value) }}</strong>
+              <strong class="stat-value">{{ fmtStat(displayStats[i]) }}</strong>
               <span class="stat-diff" :class="c.diff >= 0 ? 'up' : 'down'">
                 {{ c.diff >= 0 ? '↑' : '↓' }} {{ Math.abs(c.diff).toFixed(1) }}% 较昨日
               </span>
@@ -512,6 +534,10 @@
         </template>
         <!-- 会员管理 -->
         <template v-else-if="activeTab === 'plans'">
+          <header class="panel-head">
+            <h2 class="panel-title">会员管理</h2>
+            <span class="panel-tag">Membership Plans</span>
+          </header>
           <div class="plans-grid">
             <div v-for="p in adminPlans" :key="p.key" class="plan-card" :class="{ off: p.onSale === false }">
               <div class="plan-name">{{ p.name }}</div>
@@ -530,6 +556,10 @@
         </template>
         <!-- 积分管理 -->
         <template v-else-if="activeTab === 'pointsAdmin'">
+          <header class="panel-head">
+            <h2 class="panel-title">积分管理</h2>
+            <span class="panel-tag">Points Admin</span>
+          </header>
           <div class="rules-card">
             <div class="rules-head">
               <h3 class="rules-title">积分规则</h3>
@@ -589,20 +619,14 @@
         </template>
         <!-- 消息发布 -->
         <template v-else-if="activeTab === 'publish'">
+          <header class="panel-head">
+            <h2 class="panel-title">消息发布</h2>
+            <span class="panel-tag">Message Publish</span>
+          </header>
           <div class="pub-toolbar">
             <div class="pub-filters">
-              <select v-model="noticeTypeFilter" class="pub-select">
-                <option value="ALL">全部类型</option>
-                <option value="SYSTEM">系统</option>
-                <option value="ACTIVITY">活动</option>
-                <option value="UPDATE">更新</option>
-              </select>
-              <select v-model="noticeStatusFilter" class="pub-select">
-                <option value="ALL">全部状态</option>
-                <option value="DRAFT">草稿</option>
-                <option value="PUBLISHED">已发布</option>
-                <option value="WITHDRAWN">已撤回</option>
-              </select>
+              <ThemeSelect v-model="noticeTypeFilter" :options="noticeTypeFilterOptions" />
+              <ThemeSelect v-model="noticeStatusFilter" :options="noticeStatusFilterOptions" />
             </div>
             <button class="pub-create-btn" @click="openNoticeCreate">+ 新建通知</button>
           </div>
@@ -711,9 +735,9 @@
       </div>
     </div>
 
-    <!-- 新建/编辑通知弹窗 -->
+    <!-- 新建/编辑通知弹窗（玫红主题，呼应消息发布 tab） -->
     <div v-if="noticeModalVisible" class="pay-mask" @click.self="noticeModalVisible = false">
-      <div class="pay-dialog plan-dialog">
+      <div class="pay-dialog plan-dialog theme-rose">
         <button class="pay-close" title="关闭" @click="noticeModalVisible = false">
           <svg viewBox="0 0 24 24" width="14" height="14">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -723,19 +747,11 @@
         <div class="plan-form">
           <label class="plan-field">
             <span>类型</span>
-            <select v-model="noticeForm.type" class="pub-select">
-              <option value="SYSTEM">系统</option>
-              <option value="ACTIVITY">活动</option>
-              <option value="UPDATE">更新</option>
-            </select>
+            <ThemeSelect v-model="noticeForm.type" :options="noticeTypeOptions" />
           </label>
           <label class="plan-field">
             <span>发布范围</span>
-            <select v-model="noticeForm.scope" class="pub-select">
-              <option value="ALL">全员</option>
-              <option value="VIP">仅会员</option>
-              <option value="GUEST">仅游客</option>
-            </select>
+            <ThemeSelect v-model="noticeForm.scope" :options="noticeScopeOptions" />
           </label>
           <label class="plan-field">
             <span>标题</span>
@@ -753,9 +769,9 @@
       </div>
     </div>
 
-    <!-- 调整积分弹窗 -->
+    <!-- 调整积分弹窗（靛蓝主题，呼应积分管理 tab） -->
     <div v-if="pointAdjustVisible" class="pay-mask" @click.self="pointAdjustVisible = false">
-      <div class="pay-dialog plan-dialog">
+      <div class="pay-dialog plan-dialog theme-indigo">
         <button class="pay-close" title="关闭" @click="pointAdjustVisible = false">
           <svg viewBox="0 0 24 24" width="14" height="14">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -835,6 +851,7 @@ import {
 } from '../api'
 import { formatTime } from '../utils/formatTime'
 import SvgChart from '../components/SvgChart.vue'
+import ThemeSelect from '../components/ThemeSelect.vue'
 
 const router = useRouter()
 
@@ -852,18 +869,18 @@ const user = ref(JSON.parse(sessionStorage.getItem('chat-user') || 'null'))
 const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
 const baseTabs = [
-  { key: 'profile', label: '个人中心' },
-  { key: 'vip', label: '会员中心' },
-  { key: 'points', label: '积分明细' },
-  { key: 'notice', label: '系统通知' }
+  { key: 'profile', label: '个人中心', color: '#722ed1' },
+  { key: 'vip', label: '会员中心', color: '#ff7d00' },
+  { key: 'points', label: '积分明细', color: '#6fae00' },
+  { key: 'notice', label: '系统通知', color: '#f53f3f' }
 ]
 const adminTabs = [
-  { key: 'messages', label: '对话管理' },
-  { key: 'users', label: '用户管理' },
-  { key: 'stats', label: '统计管理' },
-  { key: 'plans', label: '会员管理' },
-  { key: 'pointsAdmin', label: '积分管理' },
-  { key: 'publish', label: '消息发布' }
+  { key: 'messages', label: '对话管理', color: '#165dff' },
+  { key: 'users', label: '用户管理', color: '#00b42a' },
+  { key: 'stats', label: '统计管理', color: '#0fc6c2' },
+  { key: 'plans', label: '会员管理', color: '#f7ba1e' },
+  { key: 'pointsAdmin', label: '积分管理', color: '#3446c2' },
+  { key: 'publish', label: '消息发布', color: '#f5319d' }
 ]
 // 仅管理员展示后台管理类 tab
 const tabs = computed(() => (isAdmin.value ? [...baseTabs, ...adminTabs] : baseTabs))
@@ -1254,6 +1271,12 @@ const usersError = ref('')
 const actionError = ref('')
 const userSearch = ref('')
 const roleFilter = ref('') // '' 全部 | ADMIN | USER | GUEST
+const roleOptions = [
+  { value: '', label: '全部角色' },
+  { value: 'ADMIN', label: '管理员' },
+  { value: 'USER', label: '用户' },
+  { value: 'GUEST', label: '游客' }
+]
 const userSort = createSortState()
 const usersLoaded = ref(false)
 
@@ -1378,6 +1401,22 @@ const statCards = computed(() => {
   ]
 })
 const fmtStat = (v) => (typeof v === 'number' ? v.toLocaleString() : '—')
+
+// 指标数字 count-up：数据到达后从当前值缓动滚动到目标值
+const displayStats = ref([0, 0, 0, 0])
+watch(statCards, (cards) => {
+  const targets = cards.map((c) => (typeof c.value === 'number' ? c.value : 0))
+  const from = displayStats.value.slice()
+  const start = performance.now()
+  const dur = 650
+  const tick = (now) => {
+    const p = Math.min(1, (now - start) / dur)
+    const e = 1 - Math.pow(1 - p, 3)
+    displayStats.value = targets.map((t, i) => Math.round((from[i] || 0) + (t - (from[i] || 0)) * e))
+    if (p < 1) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+})
 
 // 三张图的系列配置（页面青色主题，配色区分指标）
 const activeSeries = computed(() => [
@@ -1667,9 +1706,31 @@ const adminNoticesLoaded = ref(false)
 const adminNoticesHint = ref('')
 const noticeTypeFilter = ref('ALL')
 const noticeStatusFilter = ref('ALL')
+const noticeTypeFilterOptions = [
+  { value: 'ALL', label: '全部类型' },
+  { value: 'SYSTEM', label: '系统' },
+  { value: 'ACTIVITY', label: '活动' },
+  { value: 'UPDATE', label: '更新' }
+]
+const noticeStatusFilterOptions = [
+  { value: 'ALL', label: '全部状态' },
+  { value: 'DRAFT', label: '草稿' },
+  { value: 'PUBLISHED', label: '已发布' },
+  { value: 'WITHDRAWN', label: '已撤回' }
+]
 const noticeModalVisible = ref(false)
 const noticeSaving = ref(false)
 const noticeForm = ref({ id: null, type: 'SYSTEM', title: '', content: '', scope: 'ALL' })
+const noticeTypeOptions = [
+  { value: 'SYSTEM', label: '系统' },
+  { value: 'ACTIVITY', label: '活动' },
+  { value: 'UPDATE', label: '更新' }
+]
+const noticeScopeOptions = [
+  { value: 'ALL', label: '全员' },
+  { value: 'VIP', label: '仅会员' },
+  { value: 'GUEST', label: '仅游客' }
+]
 
 const filteredAdminNotices = computed(() =>
   adminNotices.value.filter(
@@ -1953,7 +2014,27 @@ onBeforeUnmount(stopPolling)
 .profile-page {
   height: 100%;
   display: flex;
-  background: #f5f6f7;
+  background: linear-gradient(165deg, #f8f5fd 0%, #f2edfb 60%, #f5f0fc 100%);
+  position: relative;
+}
+
+/* 品牌氛围：右上淡紫光晕 + 细噪点，让内页延续星云气质 */
+.profile-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 42% 34% at 88% -6%, rgba(124, 58, 237, 0.09), transparent 62%),
+    radial-gradient(ellipse 36% 30% at -4% 104%, rgba(124, 58, 237, 0.05), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+}
+
+/* 内容浮在氛围层之上 */
+.profile-page > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ===== 左侧边栏（与后台管理同风格） ===== */
@@ -1967,7 +2048,7 @@ onBeforeUnmount(stopPolling)
   border-right: 1px solid #e5e6eb;
 }
 
-/* 用户身份卡：主题色卡片化，侧边栏视觉焦点 */
+/* 用户身份卡：浅紫雾面渐变，柔和呼应品牌色 */
 .user-brand {
   display: flex;
   align-items: center;
@@ -1975,8 +2056,8 @@ onBeforeUnmount(stopPolling)
   padding: 12px 10px;
   margin-bottom: 14px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(114, 45, 209, 0.12), rgba(102, 126, 234, 0.08));
-  box-shadow: inset 0 0 0 1px rgba(114, 45, 209, 0.16);
+  background: linear-gradient(135deg, #f3effe, #e9e1fc);
+  box-shadow: inset 0 0 0 1px rgba(114, 46, 209, 0.14);
 }
 
 .brand-avatar {
@@ -2006,9 +2087,10 @@ onBeforeUnmount(stopPolling)
 
 .brand-name {
   max-width: 102px;
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
-  color: #1f2329;
+  color: #4c1d95;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2095,10 +2177,6 @@ onBeforeUnmount(stopPolling)
   flex-shrink: 0;
 }
 
-.side-item:hover {
-  background: #f2f3f5;
-}
-
 /* 未读数徽标（系统通知） */
 .side-badge {
   display: inline-flex;
@@ -2116,75 +2194,17 @@ onBeforeUnmount(stopPolling)
   line-height: 1;
 }
 
-/* 激活项：主题色底色 + 左侧指示条（资料紫，会员橙，通知红，对话蓝，用户管理绿，统计青） */
-.side-profile.active {
-  background: rgba(114, 45, 209, 0.08);
-  color: #722ed1;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #722ed1;
+/* 悬停/激活：跟随各 tab 主题色（--tab-color 由模板绑定），文字统一加深保证可读 */
+.side-item:hover {
+  background: color-mix(in srgb, var(--tab-color) 7%, transparent);
+  color: color-mix(in srgb, var(--tab-color) 88%, #1d2129);
 }
 
-.side-messages.active {
-  background: rgba(22, 93, 255, 0.08);
-  color: #165dff;
+.side-item.active {
+  background: color-mix(in srgb, var(--tab-color) 8%, transparent);
+  color: color-mix(in srgb, var(--tab-color) 88%, #1d2129);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 #165dff;
-}
-
-.side-vip.active {
-  background: rgba(255, 125, 0, 0.08);
-  color: #ff7d00;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #ff7d00;
-}
-
-.side-notice.active {
-  background: rgba(245, 63, 63, 0.08);
-  color: #f53f3f;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #f53f3f;
-}
-
-.side-users.active {
-  background: rgba(0, 180, 42, 0.08);
-  color: #00b42a;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #00b42a;
-}
-
-.side-stats.active {
-  background: rgba(15, 198, 194, 0.1);
-  color: #0aa5a1;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #0fc6c2;
-}
-
-.side-plans.active {
-  background: rgba(247, 186, 30, 0.12);
-  color: #d48806;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #f7ba1e;
-}
-
-.side-publish.active {
-  background: rgba(245, 49, 157, 0.08);
-  color: #f5319d;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #f5319d;
-}
-
-.side-points.active {
-  background: rgba(111, 174, 0, 0.1);
-  color: #5c9000;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #6fae00;
-}
-
-.side-pointsAdmin.active {
-  background: rgba(52, 70, 194, 0.1);
-  color: #3446c2;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 #3446c2;
+  box-shadow: inset 3px 0 0 var(--tab-color);
 }
 
 .logout-btn {
@@ -2302,63 +2322,127 @@ onBeforeUnmount(stopPolling)
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   border-top: 3px solid transparent;
   transition: background 0.3s, border-color 0.3s;
+  animation: panelIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 每个 tab 定义 --tab-color，供标题头竖条、表头、指示条等统一取色 */
 .panel-profile {
+  --tab-color: #722ed1;
   background: #f7f3fd;
-  border-top-color: #722ed1;
+  border-top-color: var(--tab-color);
 }
 
 .panel-messages {
+  --tab-color: #165dff;
   background: #f3f8ff;
-  border-top-color: #165dff;
+  border-top-color: var(--tab-color);
 }
 
 .panel-vip {
+  --tab-color: #ff7d00;
   background: #fff7ec;
-  border-top-color: #ff7d00;
+  border-top-color: var(--tab-color);
 }
 
 .panel-notice {
+  --tab-color: #f53f3f;
   background: #fff5f5;
-  border-top-color: #f53f3f;
+  border-top-color: var(--tab-color);
 }
 
 .panel-users {
+  --tab-color: #00b42a;
   background: #f0fbf5;
-  border-top-color: #00b42a;
+  border-top-color: var(--tab-color);
 }
 
 .panel-stats {
+  --tab-color: #0fc6c2;
   background: #f2fbfb;
-  border-top-color: #0fc6c2;
+  border-top-color: var(--tab-color);
 }
 
 .panel-plans {
+  --tab-color: #f7ba1e;
   background: #fffcf2;
-  border-top-color: #f7ba1e;
+  border-top-color: var(--tab-color);
 }
 
 .panel-publish {
+  --tab-color: #f5319d;
   background: #fef3f9;
-  border-top-color: #f5319d;
+  border-top-color: var(--tab-color);
 }
 
 .panel-points {
+  --tab-color: #6fae00;
   background: #f7fbee;
-  border-top-color: #6fae00;
+  border-top-color: var(--tab-color);
 }
 
 .panel-pointsAdmin {
+  --tab-color: #3446c2;
   background: #f1f3fc;
-  border-top-color: #3446c2;
+  border-top-color: var(--tab-color);
+}
+
+/* ===== 面板标题头：衬线标题 + 主题色竖条 + 等宽装饰小标 ===== */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(31, 35, 41, 0.07);
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #1d2129;
+  line-height: 1;
+}
+
+.panel-title::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--tab-color, #722ed1);
+}
+
+.panel-tag {
+  font-family: var(--font-num);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--tab-color, #722ed1);
+  opacity: 0.55;
 }
 
 /* ===== 统计管理（青色主题） ===== */
-.stats-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
+/* 范围切换器：置于标题头右侧 */
+.panel-head .range-switch {
+  margin-left: auto;
+  align-self: center;
 }
 
 .range-switch {
@@ -2394,6 +2478,8 @@ onBeforeUnmount(stopPolling)
 }
 
 .stat-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2401,6 +2487,25 @@ onBeforeUnmount(stopPolling)
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s;
+}
+
+/* 顶部主题色渐变 hairline：统一青色，聚焦页面主题 */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tab-color, #0fc6c2), transparent 82%);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(31, 35, 41, 0.1);
 }
 
 .stat-label {
@@ -2409,6 +2514,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .stat-value {
+  font-family: var(--font-num);
   font-size: 26px;
   font-weight: 700;
   color: #1f2329;
@@ -2416,6 +2522,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .stat-diff {
+  font-family: var(--font-num);
   font-size: 12px;
 }
 
@@ -2434,10 +2541,30 @@ onBeforeUnmount(stopPolling)
 }
 
 .chart-card {
+  position: relative;
+  overflow: hidden;
   padding: 16px 18px;
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s;
+}
+
+.chart-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tab-color, #0fc6c2), transparent 82%);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.chart-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(31, 35, 41, 0.1);
 }
 
 .chart-card.wide {
@@ -2492,7 +2619,7 @@ onBeforeUnmount(stopPolling)
   color: #4e5969;
   font-size: 13px;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, opacity 0.2s;
+  transition: color 0.2s, border-color 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .read-all-btn:hover:not(:disabled) {
@@ -2533,6 +2660,7 @@ onBeforeUnmount(stopPolling)
 
 .notice-date {
   display: block;
+  font-family: var(--font-num);
   font-size: 13px;
   font-weight: 600;
   color: #4e5969;
@@ -2544,6 +2672,7 @@ onBeforeUnmount(stopPolling)
 
 .notice-time {
   display: block;
+  font-family: var(--font-num);
   font-size: 12px;
   color: #86909c;
 }
@@ -2661,13 +2790,41 @@ onBeforeUnmount(stopPolling)
 }
 
 /* ===== 个人中心 ===== */
-/* 每日签到卡：紫色主题 */
+/* 每日签到卡：紫色主题 + 双光斑装饰 */
 .sign-card {
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
   margin-bottom: 20px;
   padding: 16px 20px;
   border-radius: 10px;
   background: linear-gradient(135deg, rgba(114, 45, 209, 0.08), rgba(102, 126, 234, 0.05));
   box-shadow: inset 0 0 0 1px rgba(114, 45, 209, 0.14);
+}
+
+.sign-card::before,
+.sign-card::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.sign-card::before {
+  top: -46px;
+  right: -28px;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(157, 92, 232, 0.2), transparent 70%);
+}
+
+.sign-card::after {
+  bottom: -52px;
+  left: -22px;
+  width: 130px;
+  height: 130px;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.16), transparent 70%);
 }
 
 .sign-head {
@@ -2689,6 +2846,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .sign-stat strong {
+  font-family: var(--font-num);
   font-size: 22px;
   font-weight: 700;
   color: #722ed1;
@@ -2722,6 +2880,10 @@ onBeforeUnmount(stopPolling)
 .sign-btn:hover:not(:disabled) {
   opacity: 0.92;
   transform: translateY(-1px);
+}
+
+.sign-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
 }
 
 .sign-btn:disabled {
@@ -2959,6 +3121,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .vip-price {
+  font-family: var(--font-num);
   font-size: 26px;
   font-weight: 700;
   color: #ff7d00;
@@ -3035,6 +3198,23 @@ onBeforeUnmount(stopPolling)
   color: #f53f3f;
 }
 
+/* 空状态：竖排 + 浅灰文档插画 */
+.tip-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 0 40px;
+}
+
+.tip-empty::before {
+  content: '';
+  width: 52px;
+  height: 52px;
+  opacity: 0.55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9cdd4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M8 13h8'/%3E%3Cpath d='M8 17h5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -3064,22 +3244,9 @@ onBeforeUnmount(stopPolling)
   box-shadow: 0 0 0 2px rgba(0, 180, 42, 0.12);
 }
 
-.role-select {
+/* 用户管理下拉与搜索框的间距（组件自带样式，此处只补位） */
+.filter-gap {
   margin-left: 12px;
-  padding: 8px 12px;
-  border: 1px solid #e5e6eb;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #1f2329;
-  background: #fff;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.role-select:focus {
-  border-color: #00b42a;
-  box-shadow: 0 0 0 2px rgba(0, 180, 42, 0.12);
 }
 
 .refresh-btn {
@@ -3144,6 +3311,27 @@ onBeforeUnmount(stopPolling)
   cursor: not-allowed;
 }
 
+/* 操作按钮统一微动效：悬停上浮 1px、按压回弹 */
+.refresh-btn:hover,
+.op-btn:hover:not(:disabled),
+.pub-op:hover:not(:disabled),
+.read-all-btn:hover:not(:disabled),
+.points-filter-btn:not(.active):hover,
+.rules-save-btn:hover:not(:disabled),
+.plan-save-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.refresh-btn:active,
+.op-btn:active:not(:disabled),
+.pub-op:active:not(:disabled),
+.read-all-btn:active:not(:disabled),
+.points-filter-btn:active,
+.rules-save-btn:active:not(:disabled),
+.plan-save-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
 .action-error {
   margin-bottom: 12px;
   padding: 10px 14px;
@@ -3183,9 +3371,10 @@ onBeforeUnmount(stopPolling)
 }
 
 .conv-table th {
-  color: #86909c;
-  font-weight: 500;
-  background: #fafbfc;
+  color: color-mix(in srgb, var(--tab-color, #4e5969) 72%, #4e5969);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: color-mix(in srgb, var(--tab-color, #86909c) 6%, #fff);
 }
 
 .conv-table td {
@@ -3217,10 +3406,73 @@ onBeforeUnmount(stopPolling)
   background: rgba(0, 180, 42, 0.07);
 }
 
+/* 行悬停：左侧浮现主题色指示条 */
+.conv-table tbody tr:hover td:first-child,
+.pub-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--tab-color, transparent);
+}
+
+/* 行数据入场：依次淡入上浮（backwards 结束后释放 transform） */
+.conv-table tbody tr,
+.pub-table tbody tr {
+  animation: rowIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.conv-table tbody tr:nth-child(1),
+.pub-table tbody tr:nth-child(1) {
+  animation-delay: 0.03s;
+}
+
+.conv-table tbody tr:nth-child(2),
+.pub-table tbody tr:nth-child(2) {
+  animation-delay: 0.07s;
+}
+
+.conv-table tbody tr:nth-child(3),
+.pub-table tbody tr:nth-child(3) {
+  animation-delay: 0.11s;
+}
+
+.conv-table tbody tr:nth-child(4),
+.pub-table tbody tr:nth-child(4) {
+  animation-delay: 0.15s;
+}
+
+.conv-table tbody tr:nth-child(5),
+.pub-table tbody tr:nth-child(5) {
+  animation-delay: 0.19s;
+}
+
+.conv-table tbody tr:nth-child(6),
+.pub-table tbody tr:nth-child(6) {
+  animation-delay: 0.23s;
+}
+
+.conv-table tbody tr:nth-child(n + 7) {
+  animation-delay: 0.27s;
+}
+
+.pub-table tbody tr:nth-child(n + 7) {
+  animation-delay: 0.27s;
+}
+
 .conv-link {
   color: #165dff;
   cursor: pointer;
   word-break: break-all;
+  font-family: var(--font-num);
+  font-size: 13px;
 }
 
 .conv-link:hover {
@@ -3233,6 +3485,7 @@ onBeforeUnmount(stopPolling)
   min-width: 28px;
   padding: 2px 12px;
   border-radius: 999px;
+  font-family: var(--font-num);
   font-size: 12px;
   font-weight: 600;
   color: #165dff;
@@ -3256,12 +3509,15 @@ onBeforeUnmount(stopPolling)
 }
 
 .uid {
+  font-family: var(--font-num);
   font-size: 12px;
   color: #86909c;
   white-space: nowrap;
 }
 
 .time-cell {
+  font-family: var(--font-num);
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -3274,6 +3530,19 @@ onBeforeUnmount(stopPolling)
   font-size: 12px;
   line-height: 1.6;
   white-space: nowrap;
+}
+
+/* 徽章统一细描边：同色系半透明，胶囊更立体 */
+.role-badge,
+.status-badge,
+.count-badge,
+.notice-type,
+.pub-type,
+.pub-status,
+.pub-read-badge,
+.plan-state,
+.points-type {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .role-admin {
@@ -3439,6 +3708,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .plan-price strong {
+  font-family: var(--font-num);
   font-size: 28px;
   color: #d48806;
 }
@@ -3518,8 +3788,7 @@ onBeforeUnmount(stopPolling)
 
 .plan-field input[type='number'],
 .plan-field input[type='text'],
-.plan-field textarea,
-.plan-field select {
+.plan-field textarea {
   padding: 8px 10px;
   border: 1px solid #e5e6eb;
   border-radius: 8px;
@@ -3531,8 +3800,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .plan-field input:focus,
-.plan-field textarea:focus,
-.plan-field select:focus {
+.plan-field textarea:focus {
   border-color: #f7ba1e;
 }
 
@@ -3550,7 +3818,7 @@ onBeforeUnmount(stopPolling)
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: filter 0.2s;
+  transition: filter 0.2s, transform 0.2s;
 }
 
 .plan-save-btn:hover:not(:disabled) {
@@ -3560,6 +3828,31 @@ onBeforeUnmount(stopPolling)
 .plan-save-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ===== 弹窗主题化：focus 边框与保存按钮跟随所属 tab 主题 ===== */
+/* 消息发布（玫红） */
+.plan-dialog.theme-rose {
+  --tab-color: #f5319d;
+}
+
+.plan-dialog.theme-rose .plan-field input:focus,
+.plan-dialog.theme-rose .plan-field textarea:focus {
+  border-color: #f5319d;
+}
+
+.plan-dialog.theme-rose .plan-save-btn {
+  background: linear-gradient(135deg, #f5319d, #cb1e83);
+}
+
+/* 积分管理（靛蓝） */
+.plan-dialog.theme-indigo {
+  --tab-color: #3446c2;
+}
+
+.plan-dialog.theme-indigo .plan-field input:focus,
+.plan-dialog.theme-indigo .plan-field textarea:focus {
+  border-color: #3446c2;
 }
 
 /* ===== 消息发布（玫红主题） ===== */
@@ -3574,17 +3867,6 @@ onBeforeUnmount(stopPolling)
 .pub-filters {
   display: flex;
   gap: 10px;
-}
-
-.pub-select {
-  padding: 7px 10px;
-  border: 1px solid #e5e6eb;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 13px;
-  color: #1f2329;
-  outline: none;
-  cursor: pointer;
 }
 
 .pub-create-btn {
@@ -3623,9 +3905,10 @@ onBeforeUnmount(stopPolling)
 }
 
 .pub-table th {
-  color: #86909c;
+  color: color-mix(in srgb, var(--tab-color, #4e5969) 72%, #4e5969);
   font-weight: 600;
-  background: #fdf3f9;
+  letter-spacing: 0.5px;
+  background: color-mix(in srgb, var(--tab-color, #86909c) 6%, #fff);
 }
 
 .pub-table tbody tr {
@@ -3633,7 +3916,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .pub-table tbody tr:hover {
-  background: rgba(245, 49, 157, 0.05);
+  background: color-mix(in srgb, var(--tab-color, #f5319d) 5%, transparent);
 }
 
 .pub-title-cell {
@@ -3643,7 +3926,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .pub-title-cell:hover {
-  color: #f5319d;
+  color: var(--tab-color, #f5319d);
 }
 
 .pub-type {
@@ -3696,6 +3979,7 @@ onBeforeUnmount(stopPolling)
   text-align: center;
   padding: 2px 10px;
   border-radius: 999px;
+  font-family: var(--font-num);
   background: #fdeaf4;
   color: #cb1e83;
   font-weight: 600;
@@ -3752,8 +4036,8 @@ onBeforeUnmount(stopPolling)
 }
 
 .pub-op:hover {
-  border-color: #f5319d;
-  color: #f5319d;
+  border-color: var(--tab-color, #f5319d);
+  color: var(--tab-color, #f5319d);
 }
 
 .pub-op:disabled {
@@ -3761,13 +4045,14 @@ onBeforeUnmount(stopPolling)
   cursor: not-allowed;
 }
 
+/* primary：跟随所属 tab 主题色（消息发布玫红 / 积分管理靛蓝） */
 .pub-op.primary {
-  border-color: #00b42a;
-  color: #00b42a;
+  border-color: var(--tab-color, #00b42a);
+  color: var(--tab-color, #00b42a);
 }
 
 .pub-op.primary:hover {
-  background: #00b42a;
+  background: var(--tab-color, #00b42a);
   color: #fff;
 }
 
@@ -3886,6 +4171,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .pb-value {
+  font-family: var(--font-num);
   font-size: 32px;
   font-weight: 800;
   color: #5c9000;
@@ -3902,6 +4188,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .pb-num {
+  font-family: var(--font-num);
   font-size: 18px;
   font-weight: 700;
 }
@@ -4003,11 +4290,13 @@ onBeforeUnmount(stopPolling)
 
 .points-time {
   margin: 0;
+  font-family: var(--font-num);
   font-size: 12px;
   color: #c9cdd4;
 }
 
 .points-delta {
+  font-family: var(--font-num);
   font-size: 15px;
   font-weight: 700;
 }
@@ -4059,7 +4348,7 @@ onBeforeUnmount(stopPolling)
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: filter 0.2s;
+  transition: filter 0.2s, transform 0.2s;
 }
 
 .rules-save-btn:hover:not(:disabled) {
@@ -4093,16 +4382,19 @@ onBeforeUnmount(stopPolling)
 }
 
 .pt-balance {
+  font-family: var(--font-num);
   font-size: 14px;
   color: #3446c2;
 }
 
 .pt-earn {
+  font-family: var(--font-num);
   color: #00b42a;
   font-weight: 600;
 }
 
 .pt-spend {
+  font-family: var(--font-num);
   color: #ff7d00;
   font-weight: 600;
 }

@@ -53,6 +53,11 @@
       }"
     ></div>
     <div class="home-bg">
+      <!-- 星云夜主标题：衬线字体 + 渐显 -->
+      <header class="hero">
+        <h1 class="hero-title">AI 智能应用</h1>
+        <p class="hero-sub">对话 · 情感 · 洞见，在星尘之间</p>
+      </header>
       <div class="app-cards">
         <div
           v-for="app in apps"
@@ -282,7 +287,11 @@ function goTo(path) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* 星云夜：深空紫黑底 + 双极光晕 */
+  background:
+    radial-gradient(ellipse 80% 55% at 72% -12%, rgba(124, 58, 237, 0.38), transparent 62%),
+    radial-gradient(ellipse 65% 50% at 8% 108%, rgba(167, 139, 250, 0.2), transparent 60%),
+    linear-gradient(160deg, #0d0a1f 0%, #241647 55%, #171030 100%);
   position: relative;
   overflow: hidden;
   cursor: pointer;
@@ -493,6 +502,65 @@ function goTo(path) {
   padding: 40px 20px;
 }
 
+/* ===== 星云夜主标题 ===== */
+.hero {
+  margin-bottom: 44px;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  background: linear-gradient(180deg, #ffffff 30%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 60px rgba(124, 58, 237, 0.45);
+  animation: heroIn 0.9s 0.05s both cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-sub {
+  margin-top: 14px;
+  font-size: 14px;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.62);
+  animation: heroIn 0.9s 0.18s both cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes heroIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* ===== 卡片入场编排：依次浮入（backwards：结束后释放 transform，不干扰 3D 倾斜） ===== */
+.app-cards > * {
+  animation: cardRise 0.7s backwards cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-cards > *:nth-child(1) { animation-delay: 0.3s; }
+.app-cards > *:nth-child(2) { animation-delay: 0.42s; }
+.app-cards > *:nth-child(3) { animation-delay: 0.54s; }
+
+@keyframes cardRise {
+  from {
+    opacity: 0;
+    transform: translateY(34px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .app-cards {
   display: flex;
   gap: 32px;
@@ -568,6 +636,7 @@ function goTo(path) {
 }
 
 .temp-num {
+  font-family: var(--font-num);
   font-size: 36px;
   font-weight: 700;
   letter-spacing: -1px;
@@ -746,9 +815,11 @@ function goTo(path) {
 }
 
 .app-name {
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 600;
   margin-bottom: 10px;
+  letter-spacing: 1px;
 }
 
 .app-desc {

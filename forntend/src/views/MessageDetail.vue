@@ -21,13 +21,21 @@
           class="msg-item"
           :class="msg.role === 'user' ? 'msg-user' : 'msg-ai'"
         >
-          <div class="msg-meta">
-            <span class="msg-role" :class="msg.role === 'user' ? 'role-user' : 'role-ai'">
-              {{ msg.role === 'user' ? '用户' : 'AI' }}
-            </span>
-            <span class="msg-time">{{ formatTime(msg.createTime) }}</span>
+          <div class="msg-when">
+            <span class="when-date" :class="{ today: isToday(msg.createTime) }">{{ whenDate(msg.createTime) }}</span>
+            <span class="when-time">{{ whenTime(msg.createTime) }}</span>
           </div>
-          <div class="msg-content">{{ msg.content }}</div>
+          <div class="msg-node-col">
+            <span class="msg-node"></span>
+          </div>
+          <div class="msg-body">
+            <div class="msg-meta">
+              <span class="msg-role" :class="msg.role === 'user' ? 'role-user' : 'role-ai'">
+                {{ msg.role === 'user' ? '用户' : 'AI' }}
+              </span>
+            </div>
+            <div class="msg-content" v-html="renderContent(msg.content)"></div>
+          </div>
         </div>
       </div>
     </main>
@@ -45,7 +53,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { listMessages } from '../api'
-import { formatTime } from '../utils/formatTime'
 
 const router = useRouter()
 const route = useRoute()
@@ -55,6 +62,85 @@ const conversationId = route.params.conversationId
 const messages = ref([])
 const loading = ref(false)
 const error = ref('')
+
+// ===== 轻量 Markdown 渲染：先转义防注入，再还原加粗/行内代码/列表/段落 =====
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function inline(s) {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+}
+
+// 列表项内不做加粗强调，星号直接剥离为普通文字
+function stripBold(s) {
+  return s.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1')
+}
+
+function renderContent(raw) {
+  const lines = escapeHtml(raw).split(/\r?\n/)
+  const out = []
+  let list = null // 'ul' | 'ol'
+  const closeList = () => {
+    if (list) {
+      out.push(`</${list}>`)
+      list = null
+    }
+  }
+  for (const line of lines) {
+    const t = line.trim()
+    if (!t) {
+      closeList()
+      continue
+    }
+    const ul = t.match(/^[-*]\s+(.*)$/)
+    const ol = t.match(/^\d+[.、]\s+(.*)$/)
+    if (ul) {
+      if (list !== 'ul') {
+        closeList()
+        out.push('<ul>')
+        list = 'ul'
+      }
+      out.push(`<li>${stripBold(ul[1])}</li>`)
+    } else if (ol) {
+      if (list !== 'ol') {
+        closeList()
+        out.push('<ol>')
+        list = 'ol'
+      }
+      out.push(`<li>${stripBold(ol[1])}</li>`)
+    } else {
+      closeList()
+      out.push(`<p>${inline(t)}</p>`)
+    }
+  }
+  closeList()
+  return out.join('')
+}
+
+// ===== 时间轴左列：日期（今日红）+ 精确到秒的时间 =====
+const pad2 = (n) => String(n).padStart(2, '0')
+
+function isToday(t) {
+  return new Date(t).toDateString() === new Date().toDateString()
+}
+
+function whenDate(t) {
+  const d = new Date(t)
+  return isToday(t) ? '今日' : `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`
+}
+
+function whenTime(t) {
+  const d = new Date(t)
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+}
 
 // 回到顶部
 const detailMainRef = ref(null)
@@ -92,7 +178,26 @@ onMounted(async () => {
   position: relative;
 }
 
-/* 回到顶部按钮 */
+/* 品牌氛围层：紫色光晕 + 噪点颗粒（与 Profile 页一致） */
+.detail::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 42% 34% at 88% -6%, rgba(114, 46, 209, 0.09), transparent 62%),
+    radial-gradient(ellipse 36% 30% at -4% 104%, rgba(22, 93, 255, 0.05), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+}
+
+/* 内容浮在氛围层之上 */
+.detail > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 回到顶部按钮：液态玻璃 */
 .back-top {
   position: absolute;
   right: 32px;
@@ -100,21 +205,25 @@ onMounted(async () => {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 1px solid #e5e6eb;
-  background: #fff;
+  border: none;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   color: #4e5969;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.12);
   transition: all 0.2s;
   z-index: 10;
 }
 
 .back-top:hover {
   color: #165dff;
-  border-color: #165dff;
+  background: rgba(255, 255, 255, 0.9);
   transform: translateY(-2px);
 }
 
@@ -134,20 +243,37 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   padding: 16px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e5e6eb;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border-bottom: 1px solid rgba(229, 230, 235, 0.8);
+  animation: headIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes headIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .detail-title {
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 600;
   color: #1f2329;
+  letter-spacing: 1px;
 }
 
 .conv-id {
   font-size: 13px;
   color: #86909c;
   word-break: break-all;
+  font-family: var(--font-num);
 }
 
 .back-btn {
@@ -205,31 +331,95 @@ onMounted(async () => {
   gap: 20px;
 }
 
-/* 时间线主轴 */
-.msg-list::before {
+.msg-item {
+  display: flex;
+  gap: 12px;
+  animation: rowIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-item:nth-child(1) { animation-delay: 0.05s; }
+.msg-item:nth-child(2) { animation-delay: 0.09s; }
+.msg-item:nth-child(3) { animation-delay: 0.13s; }
+.msg-item:nth-child(4) { animation-delay: 0.17s; }
+.msg-item:nth-child(5) { animation-delay: 0.21s; }
+.msg-item:nth-child(6) { animation-delay: 0.25s; }
+.msg-item:nth-child(n + 7) { animation-delay: 0.29s; }
+
+/* 左侧时间列：日期在上（今日红）、时间在下（等宽） */
+.msg-when {
+  width: 58px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-top: 1px;
+}
+
+.when-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: #86909c;
+  white-space: nowrap;
+}
+
+.when-date.today {
+  color: #f53f3f;
+}
+
+.when-time {
+  font-size: 12px;
+  color: #86909c;
+  font-family: var(--font-num);
+  white-space: nowrap;
+}
+
+/* 节点列：竖线贯穿，首尾裁剪 */
+.msg-node-col {
+  position: relative;
+  width: 14px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.msg-node-col::before {
   content: '';
   position: absolute;
-  left: 9px;
-  top: 10px;
-  bottom: 10px;
+  top: 0;
+  bottom: 0;
   width: 2px;
   border-radius: 1px;
   background: #e5e6eb;
 }
 
-.msg-item {
-  position: relative;
-  padding-left: 32px;
+.msg-item:first-child .msg-node-col::before {
+  top: 6px;
 }
 
-/* 时间线节点 */
-.msg-item::before {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 5px;
+.msg-item:last-child .msg-node-col::before {
+  bottom: auto;
+  height: 6px;
+}
+
+/* 时间线节点：用户蓝环 / AI 绿环（样式对齐系统通知页） */
+.msg-node {
+  position: relative;
+  z-index: 1;
   width: 12px;
   height: 12px;
+  margin-top: 5px;
   border-radius: 50%;
   box-sizing: border-box;
   background: #fff;
@@ -237,9 +427,14 @@ onMounted(async () => {
   box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.12);
 }
 
-.msg-ai::before {
+.msg-ai .msg-node {
   border-color: #00b42a;
   box-shadow: 0 0 0 3px rgba(0, 180, 42, 0.12);
+}
+
+.msg-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .msg-meta {
@@ -265,15 +460,12 @@ onMounted(async () => {
   background: rgba(0, 180, 42, 0.1);
 }
 
-.msg-time {
-  font-size: 12px;
-  color: #86909c;
-}
-
 .msg-content {
   border-radius: 8px;
   padding: 12px 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(31, 35, 41, 0.04),
+    0 1px 4px rgba(0, 0, 0, 0.06);
   font-size: 14px;
   color: #1f2329;
   line-height: 1.6;
@@ -287,5 +479,36 @@ onMounted(async () => {
 
 .msg-ai .msg-content {
   background: #effaf1;
+}
+
+/* Markdown 渲染元素 */
+.msg-content :deep(p) {
+  margin: 0 0 8px;
+}
+
+.msg-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.msg-content :deep(ul),
+.msg-content :deep(ol) {
+  margin: 0 0 8px;
+  padding-left: 22px;
+}
+
+.msg-content :deep(li) {
+  margin: 3px 0;
+}
+
+.msg-content :deep(strong) {
+  font-weight: 600;
+}
+
+.msg-content :deep(code) {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(31, 35, 41, 0.06);
+  font-family: var(--font-num);
+  font-size: 13px;
 }
 </style>

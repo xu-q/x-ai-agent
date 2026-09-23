@@ -218,9 +218,21 @@ async function submitAuth() {
   background: var(--ad-card-bg);
   border: 1px solid var(--ad-border);
   border-radius: 20px;
+  animation: authIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   padding: 44px 40px 32px;
   text-align: center;
   box-shadow: 0 24px 60px var(--ad-shadow);
+}
+
+@keyframes authIn {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* 右上角图标按钮（关闭 / 回到首页） */
@@ -261,10 +273,12 @@ async function submitAuth() {
 }
 
 .auth-title {
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 600;
   color: var(--ad-text);
   margin-bottom: 6px;
+  letter-spacing: 2px;
 }
 
 .auth-sub {
