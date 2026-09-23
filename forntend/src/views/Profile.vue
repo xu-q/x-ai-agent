@@ -118,46 +118,21 @@
             <h2 class="panel-title">个人中心</h2>
             <span class="panel-tag">Profile</span>
           </header>
-          <!-- 每日签到 -->
-          <div class="sign-card">
-            <div class="sign-head">
-              <div class="sign-stats">
-                <div class="sign-stat">
-                  <strong>{{ sign.continuousDays }}</strong>
-                  <span>连续签到（天）</span>
-                </div>
-                <div class="sign-divider"></div>
-                <div class="sign-stat">
-                  <strong>{{ sign.monthDays }}</strong>
-                  <span>本月签到（天）</span>
-                </div>
-              </div>
-              <button class="sign-btn" :disabled="signLoading || sign.signedToday" @click="handleSign">
-                {{ signLoading ? '签到中...' : sign.signedToday ? '今日已签到' : '立即签到' }}
-              </button>
-            </div>
-            <div class="sign-week">
-              <span
-                v-for="d in signWeek"
-                :key="d.key"
-                class="sign-day"
-                :class="{ checked: d.checked, today: d.today }"
-              >
-                {{ d.label }}
-              </span>
-            </div>
-          </div>
-
-          <div class="profile-card">
-            <div class="avatar-wrap">
+          <!-- 用户信息（左，独立于卡片） + 签到日历卡（右） -->
+          <div class="profile-info-row">
+            <div class="user-info">
+              <div class="user-head">
               <div class="avatar-lg" title="点击更换头像" @click="fileInput?.click()">
                 <img v-if="displayAvatar" :src="displayAvatar" alt="头像" />
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" width="42" height="42">
+                <svg v-else viewBox="0 0 24 24" fill="currentColor" width="30" height="30">
                   <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.9 0-8 2-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-3-4.1-5-8-5z"/>
                 </svg>
                 <div class="avatar-mask">
                   <span v-if="uploading" class="mask-spinner"></span>
-                  <span v-else>更换头像</span>
+                  <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
                 </div>
               </div>
               <input
@@ -167,52 +142,77 @@
                 class="avatar-input"
                 @change="onFileChange"
               />
-            </div>
-            <div class="info-list">
-              <div class="info-row">
-                <span class="info-label">用户名</span>
-                <span class="info-value">{{ info.username || info.name || '-' }}</span>
+              <div class="user-head-info">
+              <span class="user-name" :title="info.username || info.name">{{ info.username || info.name || '-' }}</span>
+              <span class="role-badge" :class="`role-${(info.role || 'USER').toLowerCase()}`">
+                {{ roleLabel(info.role) }}
+              </span>
               </div>
-              <div class="info-row">
-                <span class="info-label">手机号</span>
-                <span class="info-value">
-                  <span class="phone-wrap">
-                    <template v-if="editingPhone">
-                      <input
-                        v-model="phoneDraft"
-                        class="phone-input"
-                        type="text"
-                        maxlength="11"
-                        placeholder="11 位手机号"
-                        @keyup.enter="savePhone"
-                      />
-                      <button
-                        class="phone-btn primary"
-                        :disabled="phoneSaving || !/^1\d{10}$/.test(phoneDraft)"
-                        @click="savePhone"
-                      >{{ phoneSaving ? '保存中...' : '保存' }}</button>
-                      <button class="phone-btn" @click="editingPhone = false">取消</button>
-                    </template>
-                    <template v-else>
-                      {{ info.phone || '未绑定' }}
-                      <button class="phone-btn" @click="startEditPhone">{{ info.phone ? '修改' : '绑定' }}</button>
-                    </template>
-                  </span>
+              </div>
+              <div class="user-detail">
+              <div class="user-meta">
+                <span class="meta-label">手机号</span>
+                <span class="phone-wrap">
+                  <input
+                    v-model="phoneDraft"
+                    class="phone-input"
+                    type="text"
+                    maxlength="11"
+                    :placeholder="info.phone ? '' : '11 位手机号'"
+                    title="点击修改，Esc 还原"
+                    @keyup.enter="savePhone"
+                    @keyup.esc="phoneDraft = info.phone || ''"
+                  />
+                  <button
+                    v-if="phoneDirty"
+                    class="phone-btn primary"
+                    :disabled="phoneSaving || !/^1\d{10}$/.test(phoneDraft)"
+                    @click="savePhone"
+                  >{{ phoneSaving ? '保存中...' : '保存' }}</button>
                 </span>
               </div>
-              <div class="info-row">
-                <span class="info-label">角色</span>
-                <span class="info-value">
-                  <span class="role-badge" :class="`role-${(info.role || 'USER').toLowerCase()}`">
-                    {{ roleLabel(info.role) }}
-                  </span>
-                </span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">注册时间</span>
-                <span class="info-value">{{ info.createTime ? formatTime(info.createTime) : '-' }}</span>
+              <div class="user-meta">
+                <span class="meta-label">注册时间</span>
+                <span>{{ info.createTime ? formatTime(info.createTime) : '-' }}</span>
               </div>
               <p v-if="infoError" class="mini-tip">{{ infoError }}</p>
+              </div>
+            </div>
+            <div class="sign-card">
+            <div class="sign-side">
+              <div class="sign-stats-grid">
+                <div class="sign-stat">
+                  <strong>{{ sign.continuousDays }}</strong>
+                  <span>连续签到</span>
+                </div>
+                <div class="sign-stat">
+                  <strong>{{ sign.monthDays }}</strong>
+                  <span>本月签到</span>
+                </div>
+                <div class="sign-stat point wide">
+                  <strong>{{ sign.balance ?? 0 }}</strong>
+                  <span>积分余额</span>
+                </div>
+              </div>
+              <button class="sign-btn" :disabled="signLoading || sign.signedToday" @click="handleSign">
+                {{ signLoading ? '签到中...' : sign.signedToday ? '今日已签到' : '立即签到' }}
+              </button>
+            </div>
+            <div class="sign-cal">
+              <div class="cal-title">{{ calTitle }}</div>
+              <div class="cal-grid">
+                <span v-for="w in CAL_HEADS" :key="w" class="cal-head">{{ w }}</span>
+                <span
+                  v-for="cell in signCalendar"
+                  :key="cell.key"
+                  class="cal-cell"
+                  :class="{ checked: cell.checked, today: cell.today, future: cell.future, pad: cell.pad }"
+                >
+                  {{ cell.day }}
+                  <span v-if="cell.pts != null" class="cal-pts">+{{ cell.pts }}</span>
+                </span>
+              </div>
+            </div>
             </div>
           </div>
         </template>
@@ -891,6 +891,7 @@ async function loadInfo() {
     const res = await getUserInfo()
     if (res.data) {
       info.value = res.data
+      phoneDraft.value = res.data?.phone || ''
       // 同步本地身份，首页胶囊 / 聊天室头像共用（token 传 null 不覆盖）
       const merged = { ...user.value, ...res.data, name: res.data.username || user.value?.name }
       user.value = merged
@@ -906,14 +907,10 @@ async function loadInfo() {
 }
 
 // 手机号绑定 / 修改（PUT /user/profile 仅允许更新头像与手机号）
-const editingPhone = ref(false)
+// 常驻输入框：默认灰框，聚焦变紫即进入编辑；仅当值有改动时出现保存按钮
 const phoneDraft = ref('')
 const phoneSaving = ref(false)
-
-function startEditPhone() {
-  phoneDraft.value = info.value.phone || ''
-  editingPhone.value = true
-}
+const phoneDirty = computed(() => phoneDraft.value !== (info.value.phone || ''))
 
 async function savePhone() {
   const phone = phoneDraft.value.trim()
@@ -926,7 +923,7 @@ async function savePhone() {
     user.value = { ...user.value, phone: info.value.phone }
     saveAuthUser(user.value, null)
     showToast('手机号已更新', 'success')
-    editingPhone.value = false
+    phoneDraft.value = info.value.phone
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
@@ -996,35 +993,77 @@ async function doUpload(file) {
 }
 
 // ===== 每日签到 =====
-const sign = ref({ signedToday: false, continuousDays: 0, monthDays: 0, recentDates: [] })
+const sign = ref({ signedToday: false, continuousDays: 0, monthDays: 0, balance: 0, recentDates: [] })
 const signLoading = ref(false)
-// 签到获得的积分（后端返回 earnedPoints 时展示）
-const signPointsEarned = ref(null)
 
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 最近 7 天签到格子（末位为今天）
-const signWeek = computed(() => {
-  const wd = ['日', '一', '二', '三', '四', '五', '六']
-  const set = new Set(sign.value.recentDates || [])
-  const list = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const key = dateKey(d)
-    list.push({ key, checked: set.has(key), today: i === 0, label: i === 0 ? '今' : wd[d.getDay()] })
+// 后端日期容错：兼容 "2026-09-23"、"2026-09-23 00:00:00" 及 LocalDate 数组 [2026,9,23]
+function normalizeSignDate(d) {
+  if (Array.isArray(d)) {
+    const [y, m, day] = d
+    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
-  return list
+  return String(d).slice(0, 10)
+}
+
+// 当月签到日历（周一起始），recentDates 命中的打勾、今天实心高亮
+const CAL_HEADS = ['一', '二', '三', '四', '五', '六', '日']
+const calTitle = computed(() => {
+  const now = new Date()
+  return `${now.getFullYear()}年${now.getMonth() + 1}月`
+})
+
+// 日历逐日积分：优先 dailyPoints（[{date, points}]，支持连续奖励递增），其次 earnedPoints 统一值
+const dailyPts = computed(() => {
+  const map = {}
+  if (Array.isArray(sign.value.dailyPoints)) {
+    for (const item of sign.value.dailyPoints) {
+      if (item?.date != null) map[normalizeSignDate(item.date)] = item.points
+    }
+  }
+  return map
+})
+
+const signCalendar = computed(() => {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const todayKey = dateKey(now)
+  const set = new Set((sign.value.recentDates || []).map(normalizeSignDate))
+  const daysInMonth = new Date(y, m + 1, 0).getDate()
+  // 周一起始偏移：getDay() 周日为 0
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7
+  const cells = []
+  for (let i = 0; i < offset; i++) cells.push({ key: `pad-${i}`, day: '', pad: true })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const checked = set.has(key)
+    cells.push({
+      key,
+      day: d,
+      checked,
+      // 已签格展示当日积分：逐日明细优先，缺省退回统一单次积分
+      pts: checked ? dailyPts.value[key] ?? sign.value.earnedPoints ?? null : null,
+      today: key === todayKey,
+      future: key > todayKey
+    })
+  }
+  return cells
 })
 
 async function loadSignInfo() {
   try {
     const res = await getSignInfo()
-    if (res.data) sign.value = res.data
+    if (res.data) {
+      sign.value = { ...sign.value, ...res.data }
+      // 签到信息中的 balance 为积分账户最新余额，同步积分概览
+      if (res.data.balance != null) pointsSummary.value.balance = res.data.balance
+    }
   } catch {
-    /* 后端未就绪，展示默认状态 */
+    /* 服务异常时保持空数据，点击签到会给出错误提示 */
   }
 }
 
@@ -1032,32 +1071,17 @@ async function handleSign() {
   signLoading.value = true
   try {
     const res = await doSign()
-    // 后端返回全量数据则整体替换，否则本地补今天的记录
+    // 后端返回签到后的全量信息（含最新积分余额），整体替换
     if (res.data) sign.value = { ...sign.value, ...res.data }
-    // 签到送积分：后端返回 earnedPoints 时同步积分概览
-    if (res.data?.earnedPoints != null) {
-      signPointsEarned.value = res.data.earnedPoints
-      pointsSummary.value.balance += res.data.earnedPoints
-      pointsSummary.value.totalEarned += res.data.earnedPoints
-    }
-    if (!sign.value.signedToday) {
-      const today = dateKey(new Date())
-      if (!sign.value.recentDates.includes(today)) sign.value.recentDates.push(today)
-      sign.value.continuousDays += 1
-      sign.value.monthDays += 1
-      sign.value.signedToday = true
-    }
-    showToast(
-      `签到成功，已连续签到 ${sign.value.continuousDays} 天${signPointsEarned.value != null ? `，+${signPointsEarned.value} 积分` : ''}`,
-      'success'
-    )
+    if (res.data?.balance != null) pointsSummary.value.balance = res.data.balance
+    showToast(`签到成功，已连续签到 ${sign.value.continuousDays} 天`, 'success')
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    // 后端就绪后自动展示后端提示信息，未接入时保留占位文案
-    showToast(e.message || '签到服务即将上线，敬请期待', 'error')
+    // 直接展示后端返回的提示信息（如「今日已签到」）
+    showToast(e.message || '签到失败，请稍后再试', 'error')
   } finally {
     signLoading.value = false
   }
@@ -2797,8 +2821,13 @@ onBeforeUnmount(stopPolling)
   z-index: 0;
   overflow: hidden;
   margin-bottom: 20px;
-  padding: 16px 20px;
+  padding: 22px 28px;
   border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  flex: 1;
+  min-width: 0;
   background: linear-gradient(135deg, rgba(114, 45, 209, 0.08), rgba(102, 126, 234, 0.05));
   box-shadow: inset 0 0 0 1px rgba(114, 45, 209, 0.14);
 }
@@ -2828,15 +2857,21 @@ onBeforeUnmount(stopPolling)
   background: radial-gradient(circle, rgba(102, 126, 234, 0.16), transparent 70%);
 }
 
-.sign-head {
+.sign-side {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  min-width: 150px;
+  padding-right: 32px;
+  border-right: 1px dashed rgba(114, 45, 209, 0.2);
 }
 
-.sign-stats {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+.sign-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 12px;
 }
 
 .sign-stat {
@@ -2846,28 +2881,33 @@ onBeforeUnmount(stopPolling)
   gap: 2px;
 }
 
+/* 积分余额格独占一行，突出数字 */
+.sign-stat.wide {
+  grid-column: span 2;
+}
+
 .sign-stat strong {
   font-family: var(--font-num);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #722ed1;
   font-variant-numeric: tabular-nums;
 }
 
+/* 积分指标用金橙色，与天数指标形成语义区分 */
+.sign-stat.point strong {
+  color: #f7a500;
+}
+
 .sign-stat span {
   font-size: 12px;
   color: #86909c;
-}
-
-.sign-divider {
-  width: 1px;
-  height: 30px;
-  background: #e5e6eb;
+  white-space: nowrap;
 }
 
 .sign-btn {
-  margin-left: auto;
-  padding: 9px 22px;
+  width: 100%;
+  padding: 9px 20px;
   border: none;
   border-radius: 999px;
   background: linear-gradient(135deg, #9d5ce8, #722ed1);
@@ -2893,51 +2933,160 @@ onBeforeUnmount(stopPolling)
   color: #86909c;
 }
 
-.sign-week {
+.sign-cal {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  justify-content: space-between;
-  margin-top: 16px;
+  flex-direction: column;
 }
 
-.sign-day {
-  width: 30px;
-  height: 30px;
+.cal-title {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #722ed1;
+  margin-bottom: 12px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 40px;
+  gap: 9px 10px;
+  width: 100%;
+}
+
+.cal-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: #86909c;
+  line-height: 20px;
+  text-align: center;
+}
+
+.cal-cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  font-size: 12px;
-  color: #86909c;
-  background: #f2f3f5;
+  gap: 4px;
+  height: 48px;
+  border-radius: 12px;
+  font-family: var(--font-num);
+  font-size: 18px;
+  font-weight: 600;
+  color: #4e5969;
   transition: background 0.2s, color 0.2s;
 }
 
-.sign-day.checked {
-  background: rgba(114, 45, 209, 0.16);
-  color: #722ed1;
-  font-weight: 600;
+.cal-cell.pad {
+  visibility: hidden;
 }
 
-.sign-day.today {
-  box-shadow: inset 0 0 0 1.5px #722ed1;
+/* 格内积分：日期右侧金橙小字，与左侧积分指标同色 */
+.cal-pts {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  color: #f7a500;
+}
+
+.cal-cell.today .cal-pts {
+  color: #fff;
+}
+
+.cal-cell.future {
+  color: #c9cdd4;
+}
+
+.cal-cell.checked {
+  background: rgba(114, 45, 209, 0.14);
   color: #722ed1;
   font-weight: 700;
 }
 
-.profile-card {
-  display: flex;
-  gap: 32px;
-  align-items: center;
+.cal-cell.today {
+  background: linear-gradient(135deg, #9d5ce8, #722ed1);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(114, 45, 209, 0.35);
 }
 
-.avatar-wrap {
+/* 个人中心首屏：左信息区（裸排） + 右签到日历卡 */
+.profile-info-row {
+  display: flex;
+  align-items: stretch;
+  gap: 32px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   flex-shrink: 0;
+  width: 300px;
+  padding-top: 8px;
+}
+
+/* 第一行：头像 + 名称徽章 */
+.user-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-head-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 头像下方信息行 */
+.user-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.user-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: #2b1a4e;
+}
+
+.user-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-num);
+  font-size: 13px;
+  color: #1f2329;
+}
+
+.user-meta + .user-meta {
+  margin-top: 6px;
+}
+
+.meta-label {
+  width: 52px;
+  flex-shrink: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: #86909c;
 }
 
 .avatar-lg {
   position: relative;
-  width: 96px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -2954,7 +3103,7 @@ onBeforeUnmount(stopPolling)
   object-fit: cover;
 }
 
-/* 悬停遮罩：更换头像 */
+/* 悬停遮罩：更换头像（相机图标） */
 .avatar-mask {
   position: absolute;
   inset: 0;
@@ -2963,7 +3112,6 @@ onBeforeUnmount(stopPolling)
   justify-content: center;
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
-  font-size: 12px;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -2989,33 +3137,6 @@ onBeforeUnmount(stopPolling)
 
 .avatar-input {
   display: none;
-}
-
-.info-list {
-  flex: 1;
-  min-width: 0;
-}
-
-.info-row {
-  display: flex;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #f0f1f3;
-  font-size: 14px;
-}
-
-.info-row:last-of-type {
-  border-bottom: none;
-}
-
-.info-label {
-  width: 80px;
-  flex-shrink: 0;
-  color: #86909c;
-}
-
-.info-value {
-  color: #1f2329;
 }
 
 .mini-tip {
@@ -4134,7 +4255,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .phone-input {
-  width: 156px;
+  width: 132px;
   height: 30px;
   padding: 0 14px;
   border: 1px solid #e5e6eb;

@@ -210,6 +210,13 @@
             <version>3.5.9</version>
         </dependency>
 
+        <!-- MP 3.5.9 起分页插件依赖的 jsqlparser 拆分为独立模块，需单独引入（PaginationInnerInterceptor 在此） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>3.5.9</version>
+        </dependency>
+
         <!-- BCrypt 密码加密（jBCrypt，独立轻量库，无额外安全框架；API：hashpw/gensalt/checkpw） -->
         <dependency>
             <groupId>de.svenkubiak</groupId>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.x.xaiagent.mapper.PointTransactionMapper">
+
+    <!-- 累计获得：正数流水之和（无记录时 COALESCE 归 0） -->
+    <select id="sumEarnedPoints" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(points), 0)
+        FROM point_transaction
+        WHERE user_id = #{userId} AND points > 0
+    </select>
+
+    <!-- 累计消费：负数流水取绝对值之和（前端展示时加负号） -->
+    <select id="sumSpentPoints" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(ABS(points)), 0)
+        FROM point_transaction
+        WHERE user_id = #{userId} AND points &lt; 0
+    </select>
+</mapper>
