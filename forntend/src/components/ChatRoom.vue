@@ -286,7 +286,9 @@ function startResize(e) {
   document.addEventListener('mouseup', onUp)
 }
 
-function handleSend() {
+function handleSend(e) {
+  // 输入法组合中的回车（选字确认）不触发发送；按钮点击传的是 MouseEvent，无 isComposing，不受影响
+  if (e && (e.isComposing || e.keyCode === 229)) return
   const text = inputText.value.trim()
   if (!text || loading.value) return
 

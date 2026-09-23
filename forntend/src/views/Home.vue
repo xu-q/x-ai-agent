@@ -82,7 +82,7 @@
         >
           <div class="weather-head">
             <span class="weather-city">杭州</span>
-            <span class="weather-date">09/22 周二</span>
+            <span class="weather-date">{{ todayLabel }}</span>
           </div>
           <svg class="weather-icon" viewBox="0 0 48 48" width="72" height="72">
             <circle cx="19" cy="19" r="9" fill="#ffd53d"/>
@@ -117,7 +117,7 @@
         >
           <div class="trends-head">
             <span class="trends-title">🔥 每日 AI 热点</span>
-            <span class="trends-date">09/22</span>
+            <span class="trends-date">{{ todayShort }}</span>
           </div>
           <ul class="trends-list">
             <li class="trend-item" v-for="(t, i) in aiTrends" :key="t.title">
@@ -261,6 +261,12 @@ const apps = [
   }
 ]
 
+// ===== 动态日期（天气卡/热点卡展示当天） =====
+const pad2 = (n) => String(n).padStart(2, '0')
+const today = new Date()
+const todayShort = `${pad2(today.getMonth() + 1)}/${pad2(today.getDate())}`
+const todayLabel = `${todayShort} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][today.getDay()]}`
+
 // ===== 天气卡片（静态展示数据，接口后续接入） =====
 const weatherDays = [
   { name: '今天', emoji: '⛅', range: '19~28°', color: '#ffb02e' },
@@ -294,7 +300,6 @@ function goTo(path) {
     linear-gradient(160deg, #0d0a1f 0%, #241647 55%, #171030 100%);
   position: relative;
   overflow: hidden;
-  cursor: pointer;
 }
 
 /* ===== 右上角登录区 ===== */
@@ -602,6 +607,7 @@ function goTo(path) {
   color: #fff;
   text-align: center;
   cursor: default;
+  transition: transform 0.12s ease-out;
   will-change: transform;
 }
 
@@ -713,6 +719,7 @@ function goTo(path) {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #fff;
   cursor: default;
+  transition: transform 0.12s ease-out;
   will-change: transform;
 }
 

@@ -16,12 +16,6 @@
   --font-body: -apple-system, BlinkMacSystemFont, 'HarmonyOS Sans SC', 'MiSans',
     'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --font-num: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Roboto Mono', monospace;
-
-  /* 液态玻璃 */
-  --glass-bg: rgba(255, 255, 255, 0.12);
-  --glass-bg-strong: rgba(255, 255, 255, 0.16);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-blur: blur(20px) saturate(150%);
 }
 
 * {
