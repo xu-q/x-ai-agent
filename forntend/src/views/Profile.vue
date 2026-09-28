@@ -2299,43 +2299,43 @@ onBeforeUnmount(stopPolling)
 }
 
 .main-profile {
-  background: #efe9fb;
+  background: #e9e1fa;
 }
 
 .main-messages {
-  background: #e8effa;
+  background: #dfeafa;
 }
 
 .main-vip {
-  background: #fdf1e3;
+  background: #fcead3;
 }
 
 .main-notice {
-  background: #fbecec;
+  background: #fae1e1;
 }
 
 .main-users {
-  background: #e6f5ec;
+  background: #dcf1e4;
 }
 
 .main-stats {
-  background: #e4f5f5;
+  background: #d7f1f1;
 }
 
 .main-plans {
-  background: #faf4e0;
+  background: #f6eecf;
 }
 
 .main-publish {
-  background: #fdeaf4;
+  background: #fcdeee;
 }
 
 .main-points {
-  background: #f0f7e0;
+  background: #e7f3cc;
 }
 
 .main-pointsAdmin {
-  background: #e9ecf9;
+  background: #dfe3f8;
 }
 
 .panel {
