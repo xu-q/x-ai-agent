@@ -564,12 +564,8 @@
                 <input v-model.number="pointsRules.signInBase" type="number" min="0" />
               </label>
               <label class="plan-field">
-                <span>连续每天加成</span>
+                <span>连续签到加成</span>
                 <input v-model.number="pointsRules.signInBonusPerDay" type="number" min="0" />
-              </label>
-              <label class="plan-field">
-                <span>单日封顶</span>
-                <input v-model.number="pointsRules.signInMax" type="number" min="1" />
               </label>
             </div>
             <p v-if="rulesHint" class="mini-tip">{{ rulesHint }}</p>
@@ -1915,7 +1911,7 @@ async function loadPoints() {
 }
 
 // ===== 积分管理（仅管理员）=====
-const DEFAULT_POINT_RULES = { signInBase: 5, signInBonusPerDay: 1, signInMax: 10 }
+const DEFAULT_POINT_RULES = { signInBase: 5, signInBonusPerDay: 1 }
 const pointsRules = ref({ ...DEFAULT_POINT_RULES })
 const rulesSaving = ref(false)
 const rulesHint = ref('')
@@ -4524,7 +4520,7 @@ onBeforeUnmount(stopPolling)
 
 .rules-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 

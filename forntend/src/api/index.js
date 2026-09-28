@@ -349,7 +349,7 @@ export function getUserPointsRecords() {
 
 /**
  * 积分管理 - 规则查询（后端接口待补充）
- * GET /admin/points/rules  → { signInBase, signInBonusPerDay, signInMax }
+ * GET /admin/points/rules  → { signInBase, signInBonusPerDay }
  */
 export function getPointsRules() {
   return request.get('/admin/points/rules')
