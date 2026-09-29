@@ -189,6 +189,14 @@
                   <strong>{{ sign.monthDays }}</strong>
                   <span>本月签到</span>
                 </div>
+                <div class="sign-stat point">
+                  <strong>+{{ sign.todayPoints ?? 0 }}</strong>
+                  <span>今日积分</span>
+                </div>
+                <div class="sign-stat point">
+                  <strong>+{{ sign.tomorrowPoints ?? 0 }}</strong>
+                  <span>明日积分</span>
+                </div>
                 <div class="sign-stat point wide">
                   <strong>{{ sign.balance ?? 0 }}</strong>
                   <span>积分余额</span>
@@ -206,10 +214,9 @@
                   v-for="cell in signCalendar"
                   :key="cell.key"
                   class="cal-cell"
-                  :class="{ checked: cell.checked, today: cell.today, future: cell.future, pad: cell.pad }"
+                  :class="{ today: cell.today, future: cell.future, pad: cell.pad }"
                 >
                   {{ cell.day }}
-                  <span v-if="cell.pts != null" class="cal-pts">+{{ cell.pts }}</span>
                 </span>
               </div>
             </div>
@@ -561,17 +568,17 @@
             <div class="rules-grid">
               <label class="plan-field">
                 <span>签到基础分</span>
-                <input v-model.number="pointsRules.signInBase" type="number" min="0" />
+                <input v-model.number="pointsRules.signInBasePoints" type="number" min="0" />
               </label>
               <label class="plan-field">
-                <span>连续签到加成</span>
-                <input v-model.number="pointsRules.signInBonusPerDay" type="number" min="0" />
+                <span>连续每天加成</span>
+                <input v-model.number="pointsRules.continuousBonus" type="number" min="0" />
               </label>
             </div>
             <p v-if="rulesHint" class="mini-tip">{{ rulesHint }}</p>
           </div>
           <div class="pub-toolbar">
-            <input v-model="pointsKeyword" class="rules-search" type="text" placeholder="按用户名搜索" />
+            <input v-model="pointsKeyword" class="rules-search" type="text" placeholder="按用户名搜索，回车" @keyup.enter="onPointsSearch" />
           </div>
           <div class="table-wrap">
             <table class="pub-table">
@@ -586,7 +593,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="u in filteredPointsUsers" :key="u.userId">
+                <tr v-for="u in pointsUsers" :key="u.userId">
                   <td class="pub-title-cell">{{ u.username }}</td>
                   <td><strong class="pt-balance">{{ u.balance }}</strong></td>
                   <td class="pt-earn">+{{ u.totalEarned }}</td>
@@ -596,12 +603,13 @@
                     <button class="pub-op primary" @click="openPointAdjust(u)">调整</button>
                   </td>
                 </tr>
-                <tr v-if="!filteredPointsUsers.length">
+                <tr v-if="!pointsUsers.length">
                   <td colspan="6" class="pub-empty">暂无用户</td>
                 </tr>
               </tbody>
             </table>
           </div>
+          <Pagination :page="pointsPage" :total="pointsTotal" :page-size="POINTS_PAGE_SIZE" @change="onPointsPageChange" />
           <p v-if="pointsUsersHint" class="mini-tip tip-warn">{{ pointsUsersHint }}</p>
         </template>
         <!-- 消息发布 -->
@@ -840,6 +848,7 @@ import {
 import { formatTime } from '../utils/formatTime'
 import SvgChart from '../components/SvgChart.vue'
 import ThemeSelect from '../components/ThemeSelect.vue'
+import Pagination from '../components/Pagination.vue'
 
 const router = useRouter()
 
@@ -989,38 +998,19 @@ async function doUpload(file) {
 }
 
 // ===== 每日签到 =====
-const sign = ref({ signedToday: false, continuousDays: 0, monthDays: 0, balance: 0, recentDates: [] })
+// todayPoints：今日积分（昨日未签为基础分，连续签到按阶梯）；tomorrowPoints：明日积分（预计明日签到所得）
+const sign = ref({ signedToday: false, continuousDays: 0, monthDays: 0, balance: 0, todayPoints: 0, tomorrowPoints: 0, recentDates: [] })
 const signLoading = ref(false)
 
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 后端日期容错：兼容 "2026-09-23"、"2026-09-23 00:00:00" 及 LocalDate 数组 [2026,9,23]
-function normalizeSignDate(d) {
-  if (Array.isArray(d)) {
-    const [y, m, day] = d
-    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  }
-  return String(d).slice(0, 10)
-}
-
-// 当月签到日历（周一起始），recentDates 命中的打勾、今天实心高亮
+// 当月签到日历（周一起始），今天实心高亮
 const CAL_HEADS = ['一', '二', '三', '四', '五', '六', '日']
 const calTitle = computed(() => {
   const now = new Date()
   return `${now.getFullYear()}年${now.getMonth() + 1}月`
-})
-
-// 日历逐日积分：优先 dailyPoints（[{date, points}]，支持连续奖励递增），其次 earnedPoints 统一值
-const dailyPts = computed(() => {
-  const map = {}
-  if (Array.isArray(sign.value.dailyPoints)) {
-    for (const item of sign.value.dailyPoints) {
-      if (item?.date != null) map[normalizeSignDate(item.date)] = item.points
-    }
-  }
-  return map
 })
 
 const signCalendar = computed(() => {
@@ -1028,7 +1018,6 @@ const signCalendar = computed(() => {
   const y = now.getFullYear()
   const m = now.getMonth()
   const todayKey = dateKey(now)
-  const set = new Set((sign.value.recentDates || []).map(normalizeSignDate))
   const daysInMonth = new Date(y, m + 1, 0).getDate()
   // 周一起始偏移：getDay() 周日为 0
   const offset = (new Date(y, m, 1).getDay() + 6) % 7
@@ -1036,16 +1025,7 @@ const signCalendar = computed(() => {
   for (let i = 0; i < offset; i++) cells.push({ key: `pad-${i}`, day: '', pad: true })
   for (let d = 1; d <= daysInMonth; d++) {
     const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    const checked = set.has(key)
-    cells.push({
-      key,
-      day: d,
-      checked,
-      // 已签格展示当日积分：逐日明细优先，缺省退回统一单次积分
-      pts: checked ? dailyPts.value[key] ?? sign.value.earnedPoints ?? null : null,
-      today: key === todayKey,
-      future: key > todayKey
-    })
+    cells.push({ key, day: d, today: key === todayKey, future: key > todayKey })
   }
   return cells
 })
@@ -1070,7 +1050,8 @@ async function handleSign() {
     // 后端返回签到后的全量信息（含最新积分余额），整体替换
     if (res.data) sign.value = { ...sign.value, ...res.data }
     if (res.data?.balance != null) pointsSummary.value.balance = res.data.balance
-    showToast(`签到成功，已连续签到 ${sign.value.continuousDays} 天`, 'success')
+    const pts = sign.value.todayPoints
+    showToast(pts ? `签到成功 +${pts}，已连续签到 ${sign.value.continuousDays} 天` : `签到成功，已连续签到 ${sign.value.continuousDays} 天`, 'success')
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
@@ -1599,6 +1580,10 @@ function handleReadAll() {
 watch(
   activeTab,
   (tab) => {
+    // 积分明细对所有用户可见，需在 admin 守卫前加载
+    if (tab === 'points' && !pointsLoaded.value) {
+      loadPoints()
+    }
     if (!isAdmin.value) return
     if (tab === 'users' && !usersLoaded.value) {
       loadUsers()
@@ -1613,9 +1598,6 @@ watch(
     }
     if (tab === 'publish' && !adminNoticesLoaded.value) {
       loadAdminNotices()
-    }
-    if (tab === 'points' && !pointsLoaded.value) {
-      loadPoints()
     }
     if (tab === 'pointsAdmin' && !pointsAdminLoaded.value) {
       loadPointsRules()
@@ -1873,15 +1855,6 @@ const pointsLoaded = ref(false)
 const pointsHint = ref('')
 const pointsFilter = ref('ALL')
 
-const DEMO_POINTS_RECORDS = [
-  { id: 1, type: 'SIGN_IN', title: '每日签到（连续 3 天）', points: 8, createTime: '2026-09-21 08:30' },
-  { id: 2, type: 'RECHARGE', title: '充值会员赠送', points: 100, createTime: '2026-09-20 15:20' },
-  { id: 3, type: 'SPEND', title: '积分兑换权益', points: -50, createTime: '2026-09-19 20:10' },
-  { id: 4, type: 'SIGN_IN', title: '每日签到（连续 2 天）', points: 7, createTime: '2026-09-20 08:26' },
-  { id: 5, type: 'ADMIN_ADJUST', title: '管理员调整：活动补偿', points: 20, createTime: '2026-09-18 10:05' },
-  { id: 6, type: 'SIGN_IN', title: '每日签到', points: 5, createTime: '2026-09-17 08:31' }
-]
-
 const filteredPointsRecords = computed(() =>
   pointsFilter.value === 'ALL'
     ? pointsRecords.value
@@ -1899,19 +1872,18 @@ async function loadPoints() {
     const [sumRes, recRes] = await Promise.all([getUserPointsSummary(), getUserPointsRecords()])
     if (sumRes.data) pointsSummary.value = sumRes.data
     const list = recRes.data?.list
-    pointsRecords.value = Array.isArray(list) && list.length ? list : DEMO_POINTS_RECORDS
-    if (!Array.isArray(list)) pointsHint.value = '积分接口未接入，当前展示示例数据'
+    pointsRecords.value = Array.isArray(list) ? list : []
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    pointsHint.value = '积分接口未接入，当前展示示例数据'
+    pointsHint.value = e.message || '积分数据加载失败'
   }
 }
 
 // ===== 积分管理（仅管理员）=====
-const DEFAULT_POINT_RULES = { signInBase: 5, signInBonusPerDay: 1 }
+const DEFAULT_POINT_RULES = { signInBasePoints: 5, continuousBonus: 1 }
 const pointsRules = ref({ ...DEFAULT_POINT_RULES })
 const rulesSaving = ref(false)
 const rulesHint = ref('')
@@ -1923,16 +1895,21 @@ const pointAdjustVisible = ref(false)
 const pointAdjustSaving = ref(false)
 const pointAdjustForm = ref({ userId: '', username: '', mode: 'add', points: 10, reason: '' })
 
-const filteredPointsUsers = computed(() => {
-  const kw = pointsKeyword.value.trim().toLowerCase()
-  return kw ? pointsUsers.value.filter((u) => u.username.toLowerCase().includes(kw)) : pointsUsers.value
-})
+// 用户积分列表分页（服务端分页 + keyword 搜索，页码条用公共组件 Pagination）
+const POINTS_PAGE_SIZE = 20
+const pointsPage = ref(1)
+const pointsTotal = ref(0)
 
-const DEMO_POINTS_USERS = [
-  { userId: '6263ffa8', username: 'xuqing', balance: 2480, totalEarned: 3120, totalSpent: 640, lastChangeTime: '2026-09-21 08:30' },
-  { userId: '99507168', username: 'xu', balance: 356, totalEarned: 406, totalSpent: 50, lastChangeTime: '2026-09-20 20:10' },
-  { userId: '24999b27', username: '游客7588', balance: 15, totalEarned: 15, totalSpent: 0, lastChangeTime: '2026-09-18 08:26' }
-]
+function onPointsSearch() {
+  if (pointsPage.value === 1) loadPointsUsers()
+  else pointsPage.value = 1 // watch 会触发加载
+}
+
+function onPointsPageChange(p) {
+  pointsPage.value = p // watch(pointsPage) 触发加载
+}
+
+watch(pointsPage, () => loadPointsUsers())
 
 async function loadPointsRules() {
   rulesHint.value = ''
@@ -1945,7 +1922,7 @@ async function loadPointsRules() {
       return
     }
     pointsRules.value = { ...DEFAULT_POINT_RULES }
-    rulesHint.value = '积分规则接口未接入，当前展示默认值'
+    rulesHint.value = e.message || '积分规则加载失败'
   }
 }
 
@@ -1960,8 +1937,7 @@ async function saveRules() {
       router.push('/')
       return
     }
-    // 后端未就绪：本地生效
-    showToast(e.message || '积分规则接口未接入，已本地记录', 'error')
+    showToast(e.message || '保存失败，请稍后再试', 'error')
   } finally {
     rulesSaving.value = false
   }
@@ -1971,17 +1947,20 @@ async function loadPointsUsers() {
   pointsAdminLoaded.value = true
   pointsUsersHint.value = ''
   try {
-    const res = await listPointsUsers()
-    const list = res.data?.list
-    pointsUsers.value = Array.isArray(list) && list.length ? list : DEMO_POINTS_USERS
-    if (!Array.isArray(list)) pointsUsersHint.value = '积分接口未接入，当前展示示例数据'
+    const res = await listPointsUsers({
+      keyword: pointsKeyword.value.trim(),
+      page: pointsPage.value,
+      size: POINTS_PAGE_SIZE
+    })
+    pointsUsers.value = Array.isArray(res.data?.list) ? res.data.list : []
+    pointsTotal.value = res.data?.total || 0
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    pointsUsers.value = DEMO_POINTS_USERS
-    pointsUsersHint.value = '积分接口未接入，当前展示示例数据'
+    pointsUsers.value = []
+    pointsUsersHint.value = e.message || '用户积分列表加载失败'
   }
 }
 
@@ -1995,36 +1974,19 @@ async function submitPointAdjust() {
   if (!(f.points > 0) || !f.reason.trim()) return
   pointAdjustSaving.value = true
   const delta = f.mode === 'add' ? f.points : -f.points
-  let backendOk = true
-  let backendMsg = ''
   try {
     await adjustUserPoints({ userId: f.userId, points: delta, reason: f.reason.trim() })
+    pointAdjustSaving.value = false
+    pointAdjustVisible.value = false
+    showToast(`已${delta > 0 ? '增加' : '扣减'} ${f.points} 积分`, 'success')
+    loadPointsUsers()
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    // 后端未就绪：本地生效
-    backendOk = false
-    backendMsg = e.message || '积分接口未接入，已本地生效'
-  }
-  pointsUsers.value = pointsUsers.value.map((u) =>
-    u.userId === f.userId
-      ? {
-          ...u,
-          balance: u.balance + delta,
-          totalEarned: delta > 0 ? u.totalEarned + delta : u.totalEarned,
-          totalSpent: delta < 0 ? u.totalSpent - delta : u.totalSpent,
-          lastChangeTime: formatTime(new Date())
-        }
-      : u
-  )
-  pointAdjustSaving.value = false
-  pointAdjustVisible.value = false
-  if (backendOk) {
-    showToast(`已${delta > 0 ? '增加' : '扣减'} ${f.points} 积分`, 'success')
-  } else {
-    showToast(backendMsg, 'error')
+    pointAdjustSaving.value = false
+    showToast(e.message || '调整失败，请稍后再试', 'error')
   }
 }
 
@@ -2978,26 +2940,8 @@ onBeforeUnmount(stopPolling)
   visibility: hidden;
 }
 
-/* 格内积分：日期右侧金橙小字，与左侧积分指标同色 */
-.cal-pts {
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 600;
-  color: #f7a500;
-}
-
-.cal-cell.today .cal-pts {
-  color: #fff;
-}
-
 .cal-cell.future {
   color: #c9cdd4;
-}
-
-.cal-cell.checked {
-  background: rgba(114, 45, 209, 0.14);
-  color: #722ed1;
-  font-weight: 700;
 }
 
 .cal-cell.today {

@@ -30,6 +30,9 @@ public class PointTransaction {
     /** 业务幂等号（与 userId 联合唯一），如 SIGN:2026-09-23 */
     private String bizNo;
 
+    /** 操作人用户 ID（后台调整积分时记录管理员 sys_user.id，普通业务流水为 NULL） */
+    private String operatorId;
+
     private String remark;
 
     private LocalDateTime createTime;

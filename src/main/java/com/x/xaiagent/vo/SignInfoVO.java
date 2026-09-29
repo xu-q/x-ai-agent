@@ -22,6 +22,12 @@ public class SignInfoVO {
     /** 近期签到日期，倒序，格式 yyyy-MM-dd */
     private List<String> recentDates;
 
+    /** 今日积分：昨日未签到为基础分，处于连续签到则按阶梯计算 */
+    private Integer todayPoints;
+
+    /** 明日积分：预计明日连续签到将获得的积分（阶梯） */
+    private Integer tomorrowPoints;
+
     /** 当前积分余额 */
     private Integer balance;
 }

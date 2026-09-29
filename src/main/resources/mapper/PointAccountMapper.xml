@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.x.xaiagent.mapper.PointAccountMapper">
+
+    <!-- 加分：行不存在则插入，存在则原子自增（PG upsert，并发安全） -->
+    <update id="upsertAddBalance">
+        INSERT INTO point_account (user_id, balance, update_time)
+        VALUES (#{userId}, #{delta}, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id)
+        DO UPDATE SET balance = point_account.balance + #{delta},
+                      update_time = CURRENT_TIMESTAMP
+    </update>
+
+    <!-- 减分：仅当余额充足时原子扣减，返回影响行数（0=余额不足），并发下不会扣成负数 -->
+    <update id="deductIfEnough">
+        UPDATE point_account
+        SET balance = balance - #{amount},
+            update_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND balance &gt;= #{amount}
+    </update>
+</mapper>

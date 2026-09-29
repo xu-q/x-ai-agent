@@ -186,16 +186,17 @@ export function updateMyProfile(data) {
 }
 
 /**
- * 个人中心 - 查询签到信息（后端接口待补充）
- * GET /user/sign/info  → { signedToday, continuousDays, monthDays, recentDates: ['2026-09-21', ...] }
+ * 个人中心 - 查询签到信息
+ * GET /user/sign/info  → { signedToday, continuousDays, monthDays, todayPoints, tomorrowPoints, balance, recentDates: ['2026-09-21', ...] }
+ * todayPoints：今日积分（昨日未签为基础分，连续签到按阶梯）；tomorrowPoints：明日积分（预计明日签到所得）
  */
 export function getSignInfo() {
   return request.get('/user/sign/info')
 }
 
 /**
- * 个人中心 - 每日签到（后端接口待补充）
- * POST /user/sign  → { signedToday, continuousDays, monthDays, recentDates }
+ * 个人中心 - 每日签到
+ * POST /user/sign  → SignInfoVO（同上，签到后的全量信息）
  */
 export function doSign() {
   return request.post('/user/sign')
@@ -348,15 +349,15 @@ export function getUserPointsRecords() {
 }
 
 /**
- * 积分管理 - 规则查询（后端接口待补充）
- * GET /admin/points/rules  → { signInBase, signInBonusPerDay }
+ * 积分管理 - 规则查询
+ * GET /admin/points/rules  → { signInBasePoints, continuousBonus }
  */
 export function getPointsRules() {
   return request.get('/admin/points/rules')
 }
 
 /**
- * 积分管理 - 保存规则（后端接口待补充）
+ * 积分管理 - 保存规则
  * PUT /admin/points/rules
  */
 export function savePointsRules(data) {
@@ -364,15 +365,15 @@ export function savePointsRules(data) {
 }
 
 /**
- * 积分管理 - 用户积分总览（后端接口待补充）
- * GET /admin/points/users  → { list: [{ userId, username, balance, totalEarned, totalSpent, lastChangeTime }] }
+ * 积分管理 - 用户积分总览
+ * GET /admin/points/users?keyword=&page=&size=  → { list: [...], total }
  */
-export function listPointsUsers() {
-  return request.get('/admin/points/users')
+export function listPointsUsers(params) {
+  return request.get('/admin/points/users', { params })
 }
 
 /**
- * 积分管理 - 调整积分（后端接口待补充）
+ * 积分管理 - 调整积分
  * POST /admin/points/adjust  body: { userId, points(正加负减), reason }
  */
 export function adjustUserPoints(data) {

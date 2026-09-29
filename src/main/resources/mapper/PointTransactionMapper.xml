@@ -17,4 +17,23 @@
         FROM point_transaction
         WHERE user_id = #{userId} AND points &lt; 0
     </select>
+
+    <!-- 管理端用户积分列表：按用户聚合余额/累计获得/累计消费/最近变动时间，从未有积分的用户也列出 -->
+    <select id="selectUserPointPage" resultType="com.x.xaiagent.vo.AdminPointUserVO">
+        SELECT u.id                                   AS user_id,
+               u.username,
+               COALESCE(a.balance, 0)                 AS balance,
+               COALESCE(SUM(CASE WHEN t.points &gt; 0 THEN t.points END), 0)    AS total_earned,
+               COALESCE(SUM(CASE WHEN t.points &lt; 0 THEN -t.points END), 0)  AS total_spent,
+               MAX(t.create_time)                     AS last_change_time
+        FROM sys_user u
+        LEFT JOIN point_account a ON a.user_id = u.id
+        LEFT JOIN point_transaction t ON t.user_id = u.id
+        WHERE u.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND u.username LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        GROUP BY u.id, u.username, a.balance
+        ORDER BY last_change_time DESC NULLS LAST
+    </select>
 </mapper>
