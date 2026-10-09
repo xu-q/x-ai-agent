@@ -13,13 +13,18 @@ import java.util.List;
 public interface UserMapper extends BaseMapper<User> {
 
     /**
-     * 按天分组统计新增用户数（含已删除，SQL 见 UserMapper.xml）。
+     * 统计全部账号数（含已删除，绕过 @TableLogic 逻辑删除过滤，SQL 见 UserMapper.xml）。
+     */
+    Long countAll();
+
+    /**
+     * 按天分组统计新增用户数（不含已删除，SQL 见 UserMapper.xml）。
      */
     List<DayCountVO> countNewByDay(@Param("startTime") LocalDateTime startTime,
                                    @Param("endTime") LocalDateTime endTime);
 
     /**
-     * 统计某时间点之前的累计注册数（含已删除，SQL 见 UserMapper.xml）。
+     * 统计某时间点之前的累计注册数（不含已删除，SQL 见 UserMapper.xml）。
      */
     Long countCreatedBefore(@Param("startTime") LocalDateTime startTime);
 }

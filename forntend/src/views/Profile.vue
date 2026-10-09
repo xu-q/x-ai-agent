@@ -496,8 +496,8 @@
             <h2 class="panel-title">统计管理</h2>
             <span class="panel-tag">Statistics</span>
             <div class="range-switch">
-              <button :class="{ on: trendDays === 7 }" @click="setRange(7)">近 7 天</button>
-              <button :class="{ on: trendDays === 30 }" @click="setRange(30)">近 30 天</button>
+              <button :class="{ on: trendDays === 7 }" :disabled="trendLoading" @click="setRange(7)">近 7 天</button>
+              <button :class="{ on: trendDays === 20 }" :disabled="trendLoading" @click="setRange(20)">近 20 天</button>
             </div>
           </header>
 
@@ -506,25 +506,15 @@
             <div v-for="(c, i) in statCards" :key="c.label" class="stat-card">
               <span class="stat-label">{{ c.label }}</span>
               <strong class="stat-value">{{ fmtStat(displayStats[i]) }}</strong>
-              <span class="stat-diff" :class="c.diff >= 0 ? 'up' : 'down'">
-                {{ c.diff >= 0 ? '↑' : '↓' }} {{ Math.abs(c.diff).toFixed(1) }}% 较昨日
-              </span>
             </div>
           </div>
 
           <!-- 趋势图 -->
           <div class="chart-grid">
-            <div class="chart-card">
-              <div class="chart-title">活跃与签到趋势</div>
-              <SvgChart :labels="trend.dates" :series="activeSeries" :height="240" />
-            </div>
-            <div class="chart-card">
-              <div class="chart-title">用户增长趋势</div>
-              <SvgChart :labels="trend.dates" :series="userSeries" :height="240" />
-            </div>
             <div class="chart-card wide">
-              <div class="chart-title">对话数量趋势</div>
-              <SvgChart :labels="trend.dates" :series="msgSeries" :height="220" />
+              <div class="chart-title">用户增长趋势</div>
+              <SvgChart v-show="!trendLoading" :labels="trend.dates" :series="userSeries" :height="240" />
+              <div v-if="trendLoading" class="chart-loading"><span class="loading-spinner"></span>数据加载中…</div>
             </div>
           </div>
 
@@ -827,8 +817,9 @@ import {
   updateMyProfile,
   getSignInfo,
   doSign,
-  getStatsOverview,
-  getStatsTrend,
+  getStatsSignToday,
+  getStatsUsersTotal,
+  getStatsUsersTrend,
   getNotices,
   markNoticeRead,
   markAllNoticesRead,
@@ -1382,28 +1373,21 @@ async function batchDelete() {
 }
 
 // ===== 统计管理 =====
-const statsOverview = ref({
-  todayActive: 0, todaySign: 0, totalUsers: 0, todayConversations: 0, diffs: {}
-})
-const trend = ref({ dates: [], activeCounts: [], signCounts: [], newUsers: [], userTotals: [], messageCounts: [] })
-const trendDays = ref(7)
+const statsSignToday = ref(0)
+const statsTotalUsers = ref(0)
+const trend = ref({ dates: [], newUsers: [], userTotals: [] })
+const trendDays = ref(20)
 const statsHint = ref('')
 const statsLoaded = ref(false)
 
-const statCards = computed(() => {
-  const o = statsOverview.value
-  const d = o.diffs || {}
-  return [
-    { label: '今日上线人数', value: o.todayActive, diff: d.active ?? 0 },
-    { label: '今日签到人数', value: o.todaySign, diff: d.sign ?? 0 },
-    { label: '用户总数量', value: o.totalUsers, diff: d.users ?? 0 },
-    { label: '今日对话数', value: o.todayConversations, diff: d.conversations ?? 0 }
-  ]
-})
+const statCards = computed(() => [
+  { label: '今日签到人数', value: statsSignToday.value },
+  { label: '用户总数量', value: statsTotalUsers.value }
+])
 const fmtStat = (v) => (typeof v === 'number' ? v.toLocaleString() : '—')
 
 // 指标数字 count-up：数据到达后从当前值缓动滚动到目标值
-const displayStats = ref([0, 0, 0, 0])
+const displayStats = ref([0, 0])
 watch(statCards, (cards) => {
   const targets = cards.map((c) => (typeof c.value === 'number' ? c.value : 0))
   const from = displayStats.value.slice()
@@ -1418,84 +1402,63 @@ watch(statCards, (cards) => {
   requestAnimationFrame(tick)
 })
 
-// 三张图的系列配置（页面青色主题，配色区分指标）
-const activeSeries = computed(() => [
-  { name: '上线人数', color: '#0fc6c2', data: trend.value.activeCounts, type: 'line' },
-  { name: '签到人数', color: '#722ed1', data: trend.value.signCounts, type: 'line' }
-])
+// 图表系列配置（页面青色主题）
 const userSeries = computed(() => [
   { name: '用户总量', color: '#3491fa', data: trend.value.userTotals, type: 'area' },
-  { name: '每日新增', color: '#ff9a2e', data: trend.value.newUsers, type: 'bar' }
-])
-const msgSeries = computed(() => [
-  { name: '对话数量', color: '#0fc6c2', data: trend.value.messageCounts, type: 'bar' }
+  { name: '今日新增', color: '#ff9a2e', data: trend.value.newUsers, type: 'line' }
 ])
 
-// 后端未接入时的示例数据（页面明确标注）
-function mockOverview() {
-  return {
-    todayActive: 126, todaySign: 89, totalUsers: 1284, todayConversations: 326,
-    diffs: { active: 12.5, sign: -4.2, users: 1.8, conversations: 8.4 }
-  }
-}
+const trendLoading = ref(false)
+let trendSeq = 0
 
-function mockTrend(days) {
-  const dates = [], activeCounts = [], signCounts = [], newUsers = [], userTotals = [], messageCounts = []
-  let total = 1150 + Math.round(Math.random() * 100)
-  const now = new Date()
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(d.getDate() - i)
-    dates.push(`${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`)
-    const wave = Math.sin(i / 2.5) * 0.3 + Math.sin(i / 7) * 0.2
-    const active = Math.round(110 + wave * 45 + Math.random() * 25)
-    activeCounts.push(active)
-    signCounts.push(Math.round(active * (0.6 + Math.random() * 0.2)))
-    const nu = 3 + Math.round(Math.random() * 8)
-    newUsers.push(nu)
-    total += nu
-    userTotals.push(total)
-    messageCounts.push(active * (12 + Math.round(Math.random() * 10)))
-  }
-  return { dates, activeCounts, signCounts, newUsers, userTotals, messageCounts }
-}
-
+// 指标卡：今日签到数 + 用户总数（两个独立接口并行拉取）
 async function loadStatsOverview() {
   try {
-    const res = await getStatsOverview()
-    if (res.data) {
-      statsOverview.value = res.data
-      statsHint.value = ''
-    }
+    const [signRes, totalRes] = await Promise.all([getStatsSignToday(), getStatsUsersTotal()])
+    statsSignToday.value = Number(signRes.data) || 0
+    statsTotalUsers.value = Number(totalRes.data) || 0
+    statsHint.value = ''
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    statsOverview.value = mockOverview()
-    statsHint.value = '统计接口未接入，当前展示示例数据'
+    statsHint.value = e.message || '统计加载失败'
   }
 }
 
+// 用户增长趋势：[{date, total, newCount}] → 图表数据；seq 防快速切换时旧响应覆盖新数据
+// x 轴日期简化为 M/D（如 9/10、10/9），降低标签拥挤度
+const fmtDay = (iso) => {
+  const [, m, d] = String(iso || '').split('-')
+  return m && d ? `${Number(m)}/${Number(d)}` : ''
+}
 async function loadTrend() {
+  const seq = ++trendSeq
+  trendLoading.value = true
   try {
-    const res = await getStatsTrend(trendDays.value)
-    if (res.data) {
-      trend.value = res.data
-      statsHint.value = ''
+    const res = await getStatsUsersTrend(trendDays.value)
+    if (seq !== trendSeq) return
+    const list = Array.isArray(res.data) ? res.data : []
+    trend.value = {
+      dates: list.map((it) => fmtDay(it.date)),
+      userTotals: list.map((it) => Number(it.total) || 0),
+      newUsers: list.map((it) => Number(it.newCount) || 0)
     }
+    statsHint.value = ''
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    trend.value = mockTrend(trendDays.value)
-    statsHint.value = '统计接口未接入，当前展示示例数据'
+    if (seq === trendSeq) statsHint.value = e.message || '趋势加载失败'
+  } finally {
+    if (seq === trendSeq) trendLoading.value = false
   }
 }
 
 function setRange(days) {
-  if (days === trendDays.value) return
+  if (days === trendDays.value || trendLoading.value) return
   trendDays.value = days
   loadTrend()
 }
@@ -2421,7 +2384,7 @@ onBeforeUnmount(stopPolling)
 
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -2470,19 +2433,6 @@ onBeforeUnmount(stopPolling)
   font-variant-numeric: tabular-nums;
 }
 
-.stat-diff {
-  font-family: var(--font-num);
-  font-size: 12px;
-}
-
-.stat-diff.up {
-  color: #00b42a;
-}
-
-.stat-diff.down {
-  color: #f53f3f;
-}
-
 .chart-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2525,6 +2475,32 @@ onBeforeUnmount(stopPolling)
   font-size: 14px;
   font-weight: 600;
   color: #1f2329;
+}
+
+/* 趋势图加载态：spinner + 提示文字，占位保持图表高度 */
+.chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 240px;
+  font-size: 13px;
+  color: #86909c;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e6eb;
+  border-top-color: var(--tab-color, #0fc6c2);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== 系统通知（红色主题） ===== */

@@ -203,21 +203,28 @@ export function doSign() {
 }
 
 /**
- * 统计管理 - 今日概览（后端接口待补充）
- * GET /stats/overview  → { todayActive, todaySign, totalUsers, todayConversations,
- *                          diffs: { active, sign, users, conversations } }  // 环比昨日百分比
+ * 统计管理 - 今日签到用户数（已对接后端 StatsController）
+ * GET /stats/sign/today  → R<Long>
  */
-export function getStatsOverview() {
-  return request.get('/stats/overview')
+export function getStatsSignToday() {
+  return request.get('/stats/sign/today')
 }
 
 /**
- * 统计管理 - 趋势数据（后端接口待补充）
- * GET /stats/trend?days=7|30
- * → { dates: ['09/15', ...], activeCounts: [], signCounts: [], newUsers: [], userTotals: [], messageCounts: [] }
+ * 统计管理 - 用户总数（已对接后端 StatsController）
+ * GET /stats/users/total  → R<Long>
  */
-export function getStatsTrend(days) {
-  return request.get('/stats/trend', { params: { days } })
+export function getStatsUsersTotal() {
+  return request.get('/stats/users/total')
+}
+
+/**
+ * 统计管理 - 用户增长趋势（已对接后端 StatsController）
+ * GET /stats/users/trend?days=7|20
+ * → R<UserTrendVO[]>: [{ date: '2026-10-09', total: 截至当日累计, newCount: 当日新增 }]
+ */
+export function getStatsUsersTrend(days) {
+  return request.get('/stats/users/trend', { params: { days } })
 }
 
 /**

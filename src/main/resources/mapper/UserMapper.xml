@@ -4,20 +4,28 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.x.xaiagent.mapper.UserMapper">
 
-    <!-- 按天分组统计新增用户数（含已删除，用于增长趋势） -->
+    <!-- 全部账号数（含已删除，绕过逻辑删除过滤） -->
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM sys_user
+    </select>
+
+    <!-- 按天分组统计新增用户数（不含已删除） -->
     <select id="countNewByDay" resultType="com.x.xaiagent.vo.DayCountVO">
         SELECT to_char(create_time, 'YYYY-MM-DD') AS date,
                COUNT(*) AS count
         FROM sys_user
-        WHERE create_time &gt;= #{startTime}
+        WHERE deleted = 0
+          AND create_time &gt;= #{startTime}
           AND create_time &lt; #{endTime}
         GROUP BY to_char(create_time, 'YYYY-MM-DD')
     </select>
 
-    <!-- 某时间点之前的累计注册数（含已删除，作为趋势基线） -->
+    <!-- 某时间点之前的累计注册数（不含已删除，作为趋势基线） -->
     <select id="countCreatedBefore" resultType="java.lang.Long">
         SELECT COUNT(*)
         FROM sys_user
-        WHERE create_time &lt; #{startTime}
+        WHERE deleted = 0
+          AND create_time &lt; #{startTime}
     </select>
 </mapper>

@@ -28,8 +28,8 @@ public class StatsServiceImpl implements StatsService {
 
     @Override
     public Long totalUsers() {
-        // @TableLogic 自动过滤 deleted=1
-        Long count = userMapper.selectCount(null);
+        // 含已删除：统计全部账号（绕过 @TableLogic 逻辑删除过滤）
+        Long count = userMapper.countAll();
         return count == null ? 0L : count;
     }
 
@@ -52,8 +52,8 @@ public class StatsServiceImpl implements StatsService {
 
     @Override
     public List<UserTrendVO> userTrend(int days) {
-        if (days != 7 && days != 30) {
-            throw new BusinessException("days 仅支持 7 或 30");
+        if (days != 7 && days != 20) {
+            throw new BusinessException("仅展示7天或近20天数据");
         }
         LocalDate today = LocalDate.now();
         LocalDate start = today.minusDays(days - 1L);
@@ -61,12 +61,12 @@ public class StatsServiceImpl implements StatsService {
         LocalDateTime startTime = start.atStartOfDay();
         LocalDateTime endTime = today.plusDays(1).atStartOfDay();
 
-        // 每日新增（含已删除）
+        // 每日新增（不含已删除）
         Map<String, Long> newByDay = userMapper.countNewByDay(startTime, endTime)
                 .stream()
                 .collect(Collectors.toMap(DayCountVO::getDate, DayCountVO::getCount));
 
-        // 基线：起始日之前的累计注册数（含已删除）
+        // 基线：起始日之前的累计注册数（不含已删除）
         Long before = userMapper.countCreatedBefore(startTime);
         long cumulative = before == null ? 0L : before;
 

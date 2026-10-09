@@ -7,18 +7,18 @@
     </div>
     <svg :viewBox="`0 0 ${W} ${H}`" class="chart-svg" @mousemove="onMove" @mouseleave="hoverIdx = null">
       <!-- 网格线与 Y 轴刻度 -->
-      <g v-for="i in 5" :key="`g${i}`">
+      <g v-for="i in segments + 1" :key="`g${i}`">
         <line
           :x1="pad.l" :x2="W - pad.r" :y1="gridY(i - 1)" :y2="gridY(i - 1)"
           :stroke="i === 1 ? '#e5e6eb' : '#f2f3f5'" stroke-width="1"
         />
-        <text :x="pad.l - 8" :y="gridY(i - 1) + 3.5" text-anchor="end" class="axis-text">
+        <text :x="pad.l - 8" :y="gridY(i - 1) + 3.5" text-anchor="end" class="axis-text axis-y">
           {{ fmtAxis((i - 1) * step) }}
         </text>
       </g>
-      <!-- X 轴标签（抽稀） -->
+      <!-- X 轴标签：单行展示全部日期 -->
       <text
-        v-for="(lb, i) in labels" v-show="showX(i)" :key="`x${i}`"
+        v-for="(lb, i) in labels" :key="`x${i}`"
         :x="xAt(i)" :y="H - 8" text-anchor="middle" class="axis-text"
       >{{ lb }}</text>
       <!-- 柱状系列（底层） -->
@@ -83,9 +83,10 @@ const maxVal = computed(() => {
   for (const s of props.series) for (const v of s.data || []) if (v > m) m = v
   return m
 })
-// Y 轴取 4 段，刻度取 1/2/5×10^k 的整值
-const step = computed(() => niceStep(maxVal.value / 4))
-const yMax = computed(() => step.value * 4 || 1)
+// Y 轴：5 段共 6 档刻度（0 ~ 5×step），刻度取 1/2/5×10^k 的整值
+const segments = 5
+const step = computed(() => niceStep(maxVal.value / segments))
+const yMax = computed(() => step.value * segments || 1)
 
 function niceStep(raw) {
   if (raw <= 0) return 1
@@ -101,8 +102,9 @@ function xAt(i) {
 function yAt(v) {
   return pad.t + (1 - v / yMax.value) * plotH.value
 }
+// 网格线 Y 坐标：第 i 条线（从 0 底到 segments 顶），与 yAt 共用同一比例，保证标签值与位置严格对齐
 function gridY(i) {
-  return pad.t + (1 - i / 4) * plotH.value
+  return pad.t + (1 - i / segments) * plotH.value
 }
 const barW = computed(() => Math.min(24, (plotW / Math.max(n.value, 1)) * 0.55))
 
@@ -119,12 +121,6 @@ const barSeries = computed(() => props.series.filter((s) => s.type === 'bar'))
 const areaSeries = computed(() => props.series.filter((s) => s.type === 'area'))
 const lineSeries = computed(() => props.series.filter((s) => s.type === 'line' || !s.type))
 const pointSeries = computed(() => props.series.filter((s) => s.type !== 'bar'))
-
-// X 轴标签抽稀：最多约 9 个
-function showX(i) {
-  const stride = Math.ceil(n.value / 9)
-  return i % stride === 0 || i === n.value - 1
-}
 
 // ===== 悬停交互：定位最近的数据槽位 =====
 const hoverIdx = ref(null)
@@ -182,8 +178,13 @@ function fmtAxis(v) {
 
 .axis-text {
   font-family: var(--font-num);
-  font-size: 11px;
+  font-size: 7px;
   fill: #86909c;
+}
+
+/* Y 轴数字比日期标签小一号，弱化存在感 */
+.axis-y {
+  font-size: 9px;
 }
 
 .chart-tip {
