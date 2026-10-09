@@ -627,9 +627,9 @@
           </div>
           <div class="pub-batch-bar">
             <span class="pub-batch-count">已选 {{ selectedNoticeIds.length }} 项</span>
-            <button class="pub-op primary" :disabled="!selectedNoticeIds.length" @click="batchSetNoticeStatus('publish')">批量发布</button>
-            <button class="pub-op warn" :disabled="!selectedNoticeIds.length" @click="batchSetNoticeStatus('withdraw')">批量撤回</button>
-            <button class="pub-op danger" :disabled="!selectedNoticeIds.length" @click="batchRemoveNotices()">批量删除</button>
+            <button class="pub-op primary" :disabled="!selectedNoticeIds.length" @click="batchSetNoticeStatus('publish')">发布</button>
+            <button class="pub-op warn" :disabled="!selectedNoticeIds.length" @click="batchSetNoticeStatus('withdraw')">撤回</button>
+            <button class="pub-op danger" :disabled="!selectedNoticeIds.length" @click="batchRemoveNotices()">删除</button>
           </div>
           <div class="table-wrap">
             <table class="pub-table">
@@ -652,7 +652,9 @@
                   </td>
                   <td class="pub-title-cell" @click="openNoticeEdit(n)">{{ n.title }}</td>
                   <td><span class="pub-type" :class="`tt-${n.type.toLowerCase()}`">{{ typeLabel(n.type) }}</span></td>
-                  <td>{{ scopeLabels[n.scope] || '全员' }}</td>
+                  <td>
+                    <span v-for="s in n.scopes" :key="s" class="pub-scope-pill">{{ scopeLabels[s] || s }}</span>
+                  </td>
                   <td>
                     <span class="pub-status" :class="`st-${n.status.toLowerCase()}`">{{ statusLabels[n.status] }}</span>
                   </td>
@@ -738,13 +740,24 @@
         </button>
         <h2 class="pay-title">{{ noticeForm.id == null ? '新建通知' : '编辑通知' }}</h2>
         <div class="plan-form">
-          <label class="plan-field">
+          <!-- 用 div 而非 label：label 会把菜单项点击转发给触发按钮导致下拉重新展开 -->
+          <div class="plan-field">
             <span>类型</span>
-            <ThemeSelect v-model="noticeForm.type" :options="noticeTypeOptions" />
-          </label>
+            <ThemeSelect v-model="noticeForm.type" :options="noticeTypeOptions" highlight />
+          </div>
           <label class="plan-field">
-            <span>发布范围</span>
-            <ThemeSelect v-model="noticeForm.scope" :options="noticeScopeOptions" />
+            <span>发布范围<em>可多选</em></span>
+            <div class="scope-checks">
+              <label
+                v-for="s in SCOPE_ITEMS"
+                :key="s.value"
+                class="scope-check"
+                :class="{ on: noticeForm.scopes.includes(s.value) }"
+              >
+                <input v-model="noticeForm.scopes" type="checkbox" :value="s.value" />
+                {{ s.label }}
+              </label>
+            </div>
           </label>
           <label class="plan-field">
             <span>标题</span>
@@ -752,11 +765,11 @@
           </label>
           <label class="plan-field">
             <span>内容</span>
-            <textarea v-model="noticeForm.content" rows="4" placeholder="通知正文"></textarea>
+            <textarea v-model="noticeForm.content" rows="8" placeholder="通知正文"></textarea>
           </label>
         </div>
         <p class="pub-form-tip">保存后为草稿，可在列表中发布</p>
-        <button class="plan-save-btn" :disabled="noticeSaving || !noticeForm.title.trim() || !noticeForm.content.trim()" @click="saveNotice">
+        <button class="plan-save-btn" :disabled="noticeSaving || !noticeForm.title.trim() || !noticeForm.content.trim() || !noticeForm.scopes.length" @click="saveNotice">
           {{ noticeSaving ? '保存中...' : '保存草稿' }}
         </button>
       </div>
@@ -828,8 +841,8 @@ import {
   listAdminNotices,
   createAdminNotice,
   updateAdminNotice,
-  toggleAdminNotice,
-  removeAdminNotice,
+  batchNoticeStatus,
+  batchDeleteNotices,
   getUserPointsSummary,
   getUserPointsRecords,
   getPointsRules,
@@ -1523,42 +1536,19 @@ const displayNotices = computed(() =>
   filteredNotices.value.map((n) => ({ src: n, ...noticeWhen(n.createTime) }))
 )
 
-// 后端未接入时的示例数据
-function mockNotices() {
-  const mk = (minAgo, type, title, content, read) => ({
-    id: `demo-${minAgo}`,
-    type,
-    title,
-    content,
-    read,
-    createTime: new Date(Date.now() - minAgo * 60000).toISOString()
-  })
-  return {
-    list: [
-      mk(30, 'SYSTEM', '系统维护通知', '平台将于今晚 23:00 - 24:00 进行例行维护，期间服务可能出现短暂波动。', false),
-      mk(180, 'ACTIVITY', '会员限时优惠', '年卡会员限时 8 折，进入会员中心即可参与。', false),
-      mk(1440, 'UPDATE', '功能更新', '个人中心新增每日签到功能，快来连续签到赢好礼。', true),
-      mk(2880, 'SYSTEM', '安全提醒', '请勿向任何人泄露您的账号密码与短信验证码。', true),
-      mk(4320, 'ACTIVITY', '邀请有礼', '邀请好友注册，双方均可获得 3 天会员体验。', true),
-      mk(7200, 'UPDATE', '对话导出上线', '对话记录已支持导出，进入对话详情页即可一键保存。', true)
-    ]
-  }
-}
-
 async function loadNotices() {
   noticesLoading.value = true
   noticesError.value = ''
   try {
     const res = await getNotices()
-    notices.value = res.data?.list || []
+    notices.value = Array.isArray(res.data) ? res.data : []
     noticesHint.value = ''
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    notices.value = mockNotices().list
-    noticesHint.value = '通知接口未接入，当前展示示例数据'
+    noticesHint.value = e.message || '通知加载失败'
   } finally {
     noticesLoading.value = false
   }
@@ -1680,15 +1670,9 @@ function applyPlanChange(f) {
 }
 
 // ===== 消息发布（仅管理员）=====
-const scopeLabels = { ALL: '全员', VIP: '仅会员', GUEST: '仅游客' }
+// scopes 为角色数组（ADMIN/USER/GUEST），范围内每个角色渲染一枚胶囊
+const scopeLabels = { ADMIN: '管理员', USER: '用户', GUEST: '游客' }
 const statusLabels = { DRAFT: '草稿', PUBLISHED: '已发布', WITHDRAWN: '已撤回' }
-const DEMO_ADMIN_NOTICES = [
-  { id: 1, type: 'SYSTEM', title: '系统维护通知', content: '平台将于今晚 23:00 - 24:00 进行例行维护，期间服务可能出现短暂波动。', scope: 'ALL', status: 'PUBLISHED', createTime: '2026-09-21 23:46' },
-  { id: 2, type: 'ACTIVITY', title: '会员限时优惠', content: '年卡会员限时 8 折，进入会员中心即可参与。', scope: 'ALL', status: 'PUBLISHED', createTime: '2026-09-21 21:22' },
-  { id: 3, type: 'UPDATE', title: '功能更新', content: '个人中心新增每日签到功能，快来连续签到赢好礼。', scope: 'ALL', status: 'PUBLISHED', createTime: '2026-09-21 00:22' },
-  { id: 4, type: 'ACTIVITY', title: '双倍积分周末', content: '本周末签到可得双倍积分，记得每天回来签到。', scope: 'VIP', status: 'DRAFT', createTime: '2026-09-20 18:40' },
-  { id: 5, type: 'SYSTEM', title: '新版本灰度发布', content: '新版本已开始灰度发布，如遇问题请及时反馈。', scope: 'ALL', status: 'WITHDRAWN', createTime: '2026-09-19 10:05' }
-]
 const adminNotices = ref([])
 const adminNoticesLoaded = ref(false)
 const adminNoticesHint = ref('')
@@ -1708,16 +1692,17 @@ const noticeStatusFilterOptions = [
 ]
 const noticeModalVisible = ref(false)
 const noticeSaving = ref(false)
-const noticeForm = ref({ id: null, type: 'SYSTEM', title: '', content: '', scope: 'ALL' })
+// 发布范围多选：scopes 角色数组（ADMIN/USER/GUEST），全选即全员
+const SCOPE_ITEMS = [
+  { value: 'ADMIN', label: '管理员' },
+  { value: 'USER', label: '用户' },
+  { value: 'GUEST', label: '游客' }
+]
+const noticeForm = ref({ id: null, type: 'SYSTEM', title: '', content: '', scopes: [] })
 const noticeTypeOptions = [
   { value: 'SYSTEM', label: '系统' },
   { value: 'ACTIVITY', label: '活动' },
   { value: 'UPDATE', label: '更新' }
-]
-const noticeScopeOptions = [
-  { value: 'ALL', label: '全员' },
-  { value: 'VIP', label: '仅会员' },
-  { value: 'GUEST', label: '仅游客' }
 ]
 
 const filteredAdminNotices = computed(() =>
@@ -1733,61 +1718,52 @@ async function loadAdminNotices() {
   adminNoticesHint.value = ''
   try {
     const res = await listAdminNotices()
-    const list = res.data?.list
-    adminNotices.value = Array.isArray(list) && list.length ? list : DEMO_ADMIN_NOTICES
-    if (!Array.isArray(list)) adminNoticesHint.value = '通知接口未接入，当前展示示例数据'
+    adminNotices.value = Array.isArray(res.data) ? res.data : []
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    adminNotices.value = DEMO_ADMIN_NOTICES
-    adminNoticesHint.value = '通知接口未接入，当前展示示例数据'
+    adminNoticesHint.value = e.message || '通知加载失败'
   }
 }
 
 function openNoticeCreate() {
-  noticeForm.value = { id: null, type: 'SYSTEM', title: '', content: '', scope: 'ALL' }
+  noticeForm.value = { id: null, type: 'SYSTEM', title: '', content: '', scopes: [] }
   noticeModalVisible.value = true
 }
 
 function openNoticeEdit(n) {
-  noticeForm.value = { id: n.id, type: n.type, title: n.title, content: n.content, scope: n.scope }
+  noticeForm.value = {
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    content: n.content,
+    scopes: [...(n.scopes ?? [])]
+  }
   noticeModalVisible.value = true
 }
 
 async function saveNotice() {
   const f = noticeForm.value
-  if (!f.title.trim() || !f.content.trim()) return
+  if (!f.title.trim() || !f.content.trim() || !f.scopes.length) return
   noticeSaving.value = true
-  const now = formatTime(new Date())
   try {
-    if (f.id == null) await createAdminNotice(f)
-    else await updateAdminNotice(f.id, f)
-    applyNoticeSave(f, now)
-    showToast(f.id == null ? '公告发布成功' : '公告已更新', 'success')
+    const payload = { type: f.type, title: f.title.trim(), content: f.content.trim(), scopes: [...f.scopes] }
+    if (f.id == null) await createAdminNotice(payload)
+    else await updateAdminNotice(f.id, payload)
+    showToast(f.id == null ? '通知已创建' : '通知已更新', 'success')
+    noticeModalVisible.value = false
+    await loadAdminNotices()
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    // 后端未就绪：本地生效
-    applyNoticeSave(f, now)
-    showToast(e.message || '公告接口未接入，已本地生效', 'error')
+    // 失败保留弹窗，展示后端提示供修改重试
+    showToast(e.message || '保存失败，请稍后再试', 'error')
   } finally {
     noticeSaving.value = false
-    noticeModalVisible.value = false
-  }
-}
-
-function applyNoticeSave(f, now) {
-  if (f.id == null) {
-    adminNotices.value = [
-      { ...f, id: Date.now(), status: 'DRAFT', createTime: now },
-      ...adminNotices.value
-    ]
-  } else {
-    adminNotices.value = adminNotices.value.map((n) => (n.id === f.id ? { ...n, ...f } : n))
   }
 }
 
@@ -1808,44 +1784,34 @@ async function batchSetNoticeStatus(action) {
   const ids = selectedNoticeIds.value
   if (!ids.length) return
   try {
-    await Promise.all(ids.map((id) => toggleAdminNotice(id, action)))
-    showToast(action === 'publish' ? `已发布 ${ids.length} 条公告` : `已撤回 ${ids.length} 条公告`, 'success')
+    await batchNoticeStatus(ids, action)
+    showToast(action === 'publish' ? `已发布 ${ids.length} 条通知` : `已撤回 ${ids.length} 条通知`, 'success')
+    selectedNoticeIds.value = []
+    await loadAdminNotices()
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    // 后端未就绪：本地生效
-    showToast(e.message || '公告接口未接入，已本地生效', 'error')
+    showToast(e.message || '批量操作失败，请稍后再试', 'error')
   }
-  adminNotices.value = adminNotices.value.map((n) => {
-    if (!ids.includes(n.id)) return n
-    if (action === 'publish') {
-      return n.status === 'PUBLISHED'
-        ? n
-        : { ...n, status: 'PUBLISHED' }
-    }
-    return n.status === 'PUBLISHED' ? { ...n, status: 'WITHDRAWN' } : n
-  })
-  selectedNoticeIds.value = []
 }
 
 async function batchRemoveNotices() {
   const ids = selectedNoticeIds.value
   if (!ids.length) return
   try {
-    await Promise.all(ids.map((id) => removeAdminNotice(id)))
-    showToast(`已删除 ${ids.length} 条公告`, 'success')
+    await batchDeleteNotices(ids)
+    showToast(`已删除 ${ids.length} 条通知`, 'success')
+    selectedNoticeIds.value = []
+    await loadAdminNotices()
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
       return
     }
-    // 后端未就绪：本地生效
-    showToast(e.message || '公告接口未接入，已本地生效', 'error')
+    showToast(e.message || '批量删除失败，请稍后再试', 'error')
   }
-  adminNotices.value = adminNotices.value.filter((n) => !ids.includes(n.id))
-  selectedNoticeIds.value = []
 }
 
 // ===== 积分明细（用户）=====
@@ -3877,6 +3843,8 @@ onBeforeUnmount(stopPolling)
   flex-direction: column;
   gap: 12px;
   margin: 16px 0;
+  /* 覆盖 .pay-dialog 的居中排版：表单统一左对齐，标签与控件同侧 */
+  text-align: left;
 }
 
 .plan-field {
@@ -4043,6 +4011,22 @@ onBeforeUnmount(stopPolling)
   font-weight: 600;
 }
 
+/* 发布范围胶囊：每角色一枚，玫红主题 */
+.pub-scope-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #ffe7f2;
+  color: #f5319d;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.pub-scope-pill + .pub-scope-pill {
+  margin-left: 4px;
+}
+
 .pub-type.tt-system {
   background: #ffece8;
   color: #f53f3f;
@@ -4177,6 +4161,59 @@ onBeforeUnmount(stopPolling)
   margin: 0 0 10px;
   font-size: 12px;
   color: #86909c;
+}
+
+/* 发布范围多选 chips（主题色随弹窗 --tab-color 继承） */
+.scope-checks {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scope-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #e5e6eb;
+  font-size: 13px;
+  color: #4e5969;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+}
+
+.scope-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scope-check:hover {
+  border-color: var(--tab-color, #f5319d);
+  color: var(--tab-color, #f5319d);
+}
+
+.scope-check.on {
+  background: var(--tab-color, #f5319d);
+  border-color: var(--tab-color, #f5319d);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 「可多选」小标注 */
+.plan-field > span em {
+  margin-left: 6px;
+  font-size: 11px;
+  font-style: normal;
+  color: #c9cdd4;
+}
+
+/* 通知弹窗类型下拉加宽为通栏，与输入框同宽（根节点与触发按钮都要撑满） */
+.plan-dialog.theme-rose .plan-field :deep(.ts),
+.plan-dialog.theme-rose .plan-field :deep(.ts-trigger) {
+  width: 100%;
 }
 
 /* 手机号行内编辑 */

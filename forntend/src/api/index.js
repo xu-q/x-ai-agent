@@ -293,43 +293,43 @@ export function updateMembershipPlan(key, data) {
 }
 
 /**
- * 消息发布 - 通知列表（后端接口待补充）
- * GET /admin/notices  → { list: [{ id, type, title, content, scope, status, createTime }] }
+ * 消息发布 - 通知列表（已对接后端 NoticeController）
+ * GET /notices  → NoticeVO[]: [{ id, type, title, content, scopes, status, createTime, updateTime, publishTime }]
  */
 export function listAdminNotices() {
-  return request.get('/admin/notices')
+  return request.get('/notices')
 }
 
 /**
- * 消息发布 - 新建通知（后端接口待补充）
- * POST /admin/notices  body: { type, title, content, scope }
+ * 消息发布 - 新建通知
+ * POST /notices  body: { type, title, content, scopes: [] }
  */
 export function createAdminNotice(data) {
-  return request.post('/admin/notices', data)
+  return request.post('/notices', data)
 }
 
 /**
- * 消息发布 - 编辑通知（后端接口待补充）
- * PUT /admin/notices/{id}
+ * 消息发布 - 编辑通知
+ * PUT /notices/{id}  body: { type, title, content, scopes: [] }
  */
 export function updateAdminNotice(id, data) {
-  return request.put(`/admin/notices/${id}`, data)
+  return request.put(`/notices/${id}`, data)
 }
 
 /**
- * 消息发布 - 发布/撤回通知（后端接口待补充）
- * POST /admin/notices/{id}/publish | withdraw
+ * 消息发布 - 批量发布/撤回
+ * POST /notices/batch-status  body: { ids, action: 'publish' | 'withdraw' }  → 受影响条数
  */
-export function toggleAdminNotice(id, action) {
-  return request.post(`/admin/notices/${id}/${action}`)
+export function batchNoticeStatus(ids, action) {
+  return request.post('/notices/batch-status', { ids, action })
 }
 
 /**
- * 消息发布 - 删除通知（后端接口待补充）
- * DELETE /admin/notices/{id}
+ * 消息发布 - 批量删除
+ * POST /notices/batch-delete  body: { ids }  → 删除条数
  */
-export function removeAdminNotice(id) {
-  return request.delete(`/admin/notices/${id}`)
+export function batchDeleteNotices(ids) {
+  return request.post('/notices/batch-delete', { ids })
 }
 
 /**

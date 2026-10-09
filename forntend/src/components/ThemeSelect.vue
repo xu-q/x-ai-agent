@@ -1,6 +1,6 @@
 <template>
   <div ref="rootRef" class="ts">
-    <button type="button" class="ts-trigger" @click="open = !open">
+    <button type="button" class="ts-trigger" :class="{ 'ts-active': highlight && hasValue }" @click="open = !open">
       <span class="ts-label">{{ currentLabel }}</span>
       <svg class="ts-arrow" :class="{ up: open }" viewBox="0 0 24 24" width="12" height="12">
         <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -13,7 +13,7 @@
           :key="opt.value"
           class="ts-option"
           :class="{ selected: opt.value === modelValue }"
-          @click="pick(opt)"
+          @click.stop="pick(opt)"
         >
           {{ opt.label }}
           <svg v-if="opt.value === modelValue" class="ts-check" viewBox="0 0 24 24" width="12" height="12">
@@ -31,7 +31,9 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   options: { type: Array, required: true },
-  placeholder: { type: String, default: '请选择' }
+  placeholder: { type: String, default: '请选择' },
+  // 高亮模式：有选中值时触发框文字显示主题色（用于表单内下拉，筛选场景不启用）
+  highlight: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -42,6 +44,8 @@ const currentLabel = computed(() => {
   const hit = props.options.find((o) => o.value === props.modelValue)
   return hit ? hit.label : props.placeholder
 })
+
+const hasValue = computed(() => props.options.some((o) => o.value === props.modelValue))
 
 function pick(opt) {
   emit('update:modelValue', opt.value)
@@ -96,6 +100,12 @@ onBeforeUnmount(() => {
   outline: none;
   border-color: var(--tab-color, #f5319d);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--tab-color, #f5319d) 12%, transparent);
+}
+
+/* 高亮模式：已有选中值时文字主题色加粗 */
+.ts-trigger.ts-active {
+  color: var(--tab-color, #f5319d);
+  font-weight: 600;
 }
 
 .ts-label {
