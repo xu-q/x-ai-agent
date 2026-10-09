@@ -294,7 +294,7 @@ export function updateMembershipPlan(key, data) {
 
 /**
  * 消息发布 - 通知列表（后端接口待补充）
- * GET /admin/notices  → { list: [{ id, type, title, content, scope, status, readCount, totalCount, createTime }] }
+ * GET /admin/notices  → { list: [{ id, type, title, content, scope, status, createTime }] }
  */
 export function listAdminNotices() {
   return request.get('/admin/notices')

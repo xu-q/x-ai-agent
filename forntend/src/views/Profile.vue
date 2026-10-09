@@ -642,7 +642,6 @@
                   <th>类型</th>
                   <th>范围</th>
                   <th>状态</th>
-                  <th>已读 / 发送</th>
                   <th>创建时间</th>
                 </tr>
               </thead>
@@ -657,11 +656,10 @@
                   <td>
                     <span class="pub-status" :class="`st-${n.status.toLowerCase()}`">{{ statusLabels[n.status] }}</span>
                   </td>
-                  <td><span class="pub-read-badge">{{ n.readCount }}/{{ n.totalCount }}</span></td>
                   <td>{{ n.createTime }}</td>
                 </tr>
                 <tr v-if="!filteredAdminNotices.length">
-                  <td colspan="7" class="pub-empty">暂无符合条件的通知</td>
+                  <td colspan="6" class="pub-empty">暂无符合条件的通知</td>
                 </tr>
               </tbody>
             </table>
@@ -1685,11 +1683,11 @@ function applyPlanChange(f) {
 const scopeLabels = { ALL: '全员', VIP: '仅会员', GUEST: '仅游客' }
 const statusLabels = { DRAFT: '草稿', PUBLISHED: '已发布', WITHDRAWN: '已撤回' }
 const DEMO_ADMIN_NOTICES = [
-  { id: 1, type: 'SYSTEM', title: '系统维护通知', content: '平台将于今晚 23:00 - 24:00 进行例行维护，期间服务可能出现短暂波动。', scope: 'ALL', status: 'PUBLISHED', readCount: 96, totalCount: 128, createTime: '2026-09-21 23:46' },
-  { id: 2, type: 'ACTIVITY', title: '会员限时优惠', content: '年卡会员限时 8 折，进入会员中心即可参与。', scope: 'ALL', status: 'PUBLISHED', readCount: 64, totalCount: 128, createTime: '2026-09-21 21:22' },
-  { id: 3, type: 'UPDATE', title: '功能更新', content: '个人中心新增每日签到功能，快来连续签到赢好礼。', scope: 'ALL', status: 'PUBLISHED', readCount: 128, totalCount: 128, createTime: '2026-09-21 00:22' },
-  { id: 4, type: 'ACTIVITY', title: '双倍积分周末', content: '本周末签到可得双倍积分，记得每天回来签到。', scope: 'VIP', status: 'DRAFT', readCount: 0, totalCount: 0, createTime: '2026-09-20 18:40' },
-  { id: 5, type: 'SYSTEM', title: '新版本灰度发布', content: '新版本已开始灰度发布，如遇问题请及时反馈。', scope: 'ALL', status: 'WITHDRAWN', readCount: 30, totalCount: 126, createTime: '2026-09-19 10:05' }
+  { id: 1, type: 'SYSTEM', title: '系统维护通知', content: '平台将于今晚 23:00 - 24:00 进行例行维护，期间服务可能出现短暂波动。', scope: 'ALL', status: 'PUBLISHED', createTime: '2026-09-21 23:46' },
+  { id: 2, type: 'ACTIVITY', title: '会员限时优惠', content: '年卡会员限时 8 折，进入会员中心即可参与。', scope: 'ALL', status: 'PUBLISHED', createTime: '2026-09-21 21:22' },
+  { id: 3, type: 'UPDATE', title: '功能更新', content: '个人中心新增每日签到功能，快来连续签到赢好礼。', scope: 'ALL', status: 'PUBLISHED', createTime: '2026-09-21 00:22' },
+  { id: 4, type: 'ACTIVITY', title: '双倍积分周末', content: '本周末签到可得双倍积分，记得每天回来签到。', scope: 'VIP', status: 'DRAFT', createTime: '2026-09-20 18:40' },
+  { id: 5, type: 'SYSTEM', title: '新版本灰度发布', content: '新版本已开始灰度发布，如遇问题请及时反馈。', scope: 'ALL', status: 'WITHDRAWN', createTime: '2026-09-19 10:05' }
 ]
 const adminNotices = ref([])
 const adminNoticesLoaded = ref(false)
@@ -1785,7 +1783,7 @@ async function saveNotice() {
 function applyNoticeSave(f, now) {
   if (f.id == null) {
     adminNotices.value = [
-      { ...f, id: Date.now(), status: 'DRAFT', readCount: 0, totalCount: 0, createTime: now },
+      { ...f, id: Date.now(), status: 'DRAFT', createTime: now },
       ...adminNotices.value
     ]
   } else {
@@ -1825,7 +1823,7 @@ async function batchSetNoticeStatus(action) {
     if (action === 'publish') {
       return n.status === 'PUBLISHED'
         ? n
-        : { ...n, status: 'PUBLISHED', readCount: 0, totalCount: 128 }
+        : { ...n, status: 'PUBLISHED' }
     }
     return n.status === 'PUBLISHED' ? { ...n, status: 'WITHDRAWN' } : n
   })
@@ -3649,7 +3647,6 @@ onBeforeUnmount(stopPolling)
 .notice-type,
 .pub-type,
 .pub-status,
-.pub-read-badge,
 .plan-state,
 .points-type {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
@@ -4081,18 +4078,6 @@ onBeforeUnmount(stopPolling)
 .pub-status.st-withdrawn {
   background: #fff3e8;
   color: #ff7d00;
-}
-
-.pub-read-badge {
-  display: inline-block;
-  min-width: 52px;
-  text-align: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-family: var(--font-num);
-  background: #fdeaf4;
-  color: #cb1e83;
-  font-weight: 600;
 }
 
 /* 复选框列与批量操作栏 */
