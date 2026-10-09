@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.x.xaiagent.mapper.UserSignMonthMapper">
+
+    <!-- 只取某月签到位图列 -->
+    <select id="selectSignBitsByMonth" resultType="java.lang.Integer">
+        SELECT sign_bits
+        FROM user_sign_month
+        WHERE sign_month = #{month}
+    </select>
+</mapper>
