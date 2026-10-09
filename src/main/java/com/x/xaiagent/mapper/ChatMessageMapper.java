@@ -1,6 +1,8 @@
 package com.x.xaiagent.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.x.xaiagent.entity.ChatMessage;
 import com.x.xaiagent.entity.ConversationVO;
 import org.apache.ibatis.annotations.Mapper;
@@ -12,9 +14,10 @@ import java.util.List;
 public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 
     /**
-     * 按用户聚合出会话列表（逻辑删除的消息不计入），SQL 见 ChatMessageMapper.xml
+     * 按用户分页聚合会话列表（逻辑删除的消息不计入），SQL 见 ChatMessageMapper.xml。
+     * page 为分页参数，由 PaginationInnerInterceptor 自动拼接 LIMIT/OFFSET 并填充 total。
      */
-    List<ConversationVO> listConversations(@Param("userId") Long userId);
+    IPage<ConversationVO> listConversations(Page<ConversationVO> page, @Param("userId") Long userId);
 
     /**
      * 统计某会话消息数（逻辑删除不计入）

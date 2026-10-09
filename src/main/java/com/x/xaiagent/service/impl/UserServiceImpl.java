@@ -1,6 +1,7 @@
 package com.x.xaiagent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.x.xaiagent.comment.JwtTokenProvider;
 import com.x.xaiagent.constant.RoleConstants;
@@ -9,6 +10,7 @@ import com.x.xaiagent.entity.User;
 import com.x.xaiagent.globalExceptionHandler.BusinessException;
 import com.x.xaiagent.mapper.UserMapper;
 import com.x.xaiagent.service.UserService;
+import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.UserVO;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,10 +23,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
@@ -145,8 +145,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public List<UserVO> listUsers() {
-        return list().stream().map(UserVO::from).collect(Collectors.toList());
+    public PageVO<UserVO> listUsers(int page, int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        Page<User> pageQuery = new Page<>(safePage, safeSize);
+        page(pageQuery, new LambdaQueryWrapper<User>().orderByDesc(User::getCreateTime));
+
+        PageVO<UserVO> vo = new PageVO<>();
+        vo.setList(pageQuery.getRecords().stream().map(UserVO::from).toList());
+        vo.setTotal(pageQuery.getTotal());
+        return vo;
     }
 
     @Override

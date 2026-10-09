@@ -5,13 +5,13 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 管理端用户积分分页结果（GET /admin/points/users → { list, total }）
+ * 通用分页结果（list + total），各模块分页接口复用。
  */
 @Data
-public class AdminPointPageVO {
+public class PageVO<T> {
 
     /** 当前页数据 */
-    private List<AdminPointUserVO> list;
+    private List<T> list;
 
     /** 总条数 */
     private Long total;

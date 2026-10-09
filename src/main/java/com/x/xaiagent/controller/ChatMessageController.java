@@ -6,6 +6,7 @@ import com.x.xaiagent.entity.ChatMessageCitation;
 import com.x.xaiagent.entity.ConversationVO;
 import com.x.xaiagent.service.ChatMessageService;
 import com.x.xaiagent.service.ChatMessageCitationService;
+import com.x.xaiagent.vo.PageVO;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,11 +45,13 @@ public class ChatMessageController {
     }
 
     /**
-     * 查询会话列表
+     * 分页查询会话列表
      */
     @GetMapping("/conversations")
-    public R<List<ConversationVO>> listConversations(@RequestParam(defaultValue = "0") Long userId) {
-        return R.ok(chatMessageService.listConversations(userId));
+    public R<PageVO<ConversationVO>> listConversations(@RequestParam(defaultValue = "0") Long userId,
+                                                       @RequestParam(defaultValue = "1") int page,
+                                                       @RequestParam(defaultValue = "20") int size) {
+        return R.ok(chatMessageService.listConversations(userId, page, size));
     }
 
     /**

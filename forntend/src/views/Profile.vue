@@ -401,7 +401,7 @@
             </thead>
             <tbody>
               <tr
-                v-for="conv in filteredConversations"
+                v-for="conv in pagedConversations"
                 :key="conv.conversationId"
                 class="clickable"
                 :title="`查看会话 ${conv.conversationId} 的消息详情`"
@@ -415,6 +415,14 @@
               </tr>
             </tbody>
           </table>
+          <Pagination
+            v-if="filteredConversations.length > CONV_PAGE_SIZE"
+            :page="convPage"
+            :total="filteredConversations.length"
+            :page-size="CONV_PAGE_SIZE"
+            style="--pager-color: #165dff"
+            @change="convPage = $event"
+          />
         </template>
 
         <!-- 用户管理（仅管理员） -->
@@ -463,7 +471,7 @@
               </thead>
               <tbody>
                 <tr
-                  v-for="u in filteredUsers"
+                  v-for="u in pagedUsers"
                   :key="u.id"
                   :class="{ 'row-selected': selectedIds.includes(u.id) }"
                 >
@@ -487,6 +495,14 @@
                 </tr>
               </tbody>
             </table>
+            <Pagination
+              v-if="filteredUsers.length > USER_PAGE_SIZE"
+              :page="userPage"
+              :total="filteredUsers.length"
+              :page-size="USER_PAGE_SIZE"
+              style="--pager-color: #00b42a"
+              @change="userPage = $event"
+            />
           </template>
         </template>
 
@@ -1232,12 +1248,24 @@ const filteredConversations = computed(() => {
   return list
 })
 
+// 对话管理分页（本地切片）
+const CONV_PAGE_SIZE = 20
+const convPage = ref(1)
+const pagedConversations = computed(() => {
+  const start = (convPage.value - 1) * CONV_PAGE_SIZE
+  return filteredConversations.value.slice(start, start + CONV_PAGE_SIZE)
+})
+// 搜索或排序变化时回到第一页
+watch([searchText, () => convSort.field.value, () => convSort.order.value], () => {
+  convPage.value = 1
+})
+
 async function loadConversations() {
   loading.value = true
   error.value = ''
   try {
-    const res = await listConversations()
-    conversations.value = res.data || []
+    const res = await listConversations({ size: 1000 })
+    conversations.value = res.data?.list || []
   } catch (e) {
     // 直接展示后端返回的提示信息
     error.value = e.message || '加载会话列表失败，请稍后再试'
@@ -1285,12 +1313,24 @@ const filteredUsers = computed(() => {
   return list
 })
 
+// 用户管理分页（本地切片）
+const USER_PAGE_SIZE = 20
+const userPage = ref(1)
+const pagedUsers = computed(() => {
+  const start = (userPage.value - 1) * USER_PAGE_SIZE
+  return filteredUsers.value.slice(start, start + USER_PAGE_SIZE)
+})
+// 搜索 / 角色筛选 / 排序变化时回到第一页
+watch([userSearch, roleFilter, () => userSort.field.value, () => userSort.order.value], () => {
+  userPage.value = 1
+})
+
 async function loadUsers() {
   usersLoading.value = true
   usersError.value = ''
   try {
-    const res = await listUsers()
-    users.value = res.data || []
+    const res = await listUsers({ size: 1000 })
+    users.value = res.data?.list || []
     usersLoaded.value = true
   } catch (e) {
     usersError.value = e.message || '加载用户列表失败，请稍后再试'

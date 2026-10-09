@@ -6,6 +6,7 @@ import com.x.xaiagent.dto.UserLoginDTO;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.interceptor.RequireRole;
 import com.x.xaiagent.service.UserService;
+import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.UserVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,9 +17,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -46,11 +47,12 @@ public class UserController {
         return R.ok("已退出登录");
     }
 
-    /** 用户列表（仅管理员） */
+    /** 用户分页列表（仅管理员） */
     @GetMapping("/list")
     @RequireRole(RoleConstants.ADMIN)
-    public R<List<UserVO>> listUsers() {
-        return R.ok(userService.listUsers());
+    public R<PageVO<UserVO>> listUsers(@RequestParam(defaultValue = "1") int page,
+                                   @RequestParam(defaultValue = "20") int size) {
+        return R.ok(userService.listUsers(page, size));
     }
 
     /** 查询单个用户（仅管理员） */

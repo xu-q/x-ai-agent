@@ -14,8 +14,8 @@ import com.x.xaiagent.mapper.PointAccountMapper;
 import com.x.xaiagent.mapper.PointRuleConfigMapper;
 import com.x.xaiagent.mapper.PointTransactionMapper;
 import com.x.xaiagent.service.PointService;
-import com.x.xaiagent.vo.AdminPointPageVO;
 import com.x.xaiagent.vo.AdminPointUserVO;
+import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.PointRecordVO;
 import com.x.xaiagent.vo.PointSummaryVO;
 import jakarta.annotation.Resource;
@@ -122,14 +122,14 @@ public class PointServiceImpl implements PointService {
     }
 
     @Override
-    public AdminPointPageVO pageUsers(String keyword, int page, int size) {
+    public PageVO<AdminPointUserVO> pageUsers(String keyword, int page, int size) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), PAGE_SIZE_MAX);
 
         IPage<AdminPointUserVO> result = pointTransactionMapper.selectUserPointPage(
                 Page.of(safePage, safeSize), keyword);
 
-        AdminPointPageVO vo = new AdminPointPageVO();
+        PageVO<AdminPointUserVO> vo = new PageVO<>();
         vo.setList(result.getRecords());
         vo.setTotal(result.getTotal());
         return vo;

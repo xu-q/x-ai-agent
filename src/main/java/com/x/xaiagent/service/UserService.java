@@ -3,10 +3,10 @@ package com.x.xaiagent.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;
+import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.util.List;
 import java.util.Map;
 
 public interface UserService extends IService<User> {
@@ -26,8 +26,8 @@ public interface UserService extends IService<User> {
     /** 管理员禁用 / 启用用户 */
     UserVO disableUser(String id, int status);
 
-    /** 用户列表（不含已逻辑删除） */
-    List<UserVO> listUsers();
+    /** 用户分页列表（不含已逻辑删除），page 从 1 起，size 上限 100 */
+    PageVO<UserVO> listUsers(int page, int size);
 
     /** 查询单个用户 */
     UserVO getUser(String id);

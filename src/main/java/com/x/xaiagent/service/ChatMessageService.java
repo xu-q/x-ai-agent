@@ -3,6 +3,7 @@ package com.x.xaiagent.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.x.xaiagent.entity.ChatMessage;
 import com.x.xaiagent.entity.ConversationVO;
+import com.x.xaiagent.vo.PageVO;
 import org.springframework.ai.document.Document;
 
 import java.util.List;
@@ -20,9 +21,9 @@ public interface ChatMessageService extends IService<ChatMessage> {
     List<ChatMessage> listByConversation(String conversationId);
 
     /**
-     * 查询某用户的会话列表
+     * 分页查询某用户的会话列表，page 从 1 起
      */
-    List<ConversationVO> listConversations(Long userId);
+    PageVO<ConversationVO> listConversations(Long userId, int page, int size);
 
     /**
      * 统计某会话消息数

@@ -127,8 +127,8 @@ export function userLogout() {
 /**
  * 后台管理 - 会话列表
  */
-export function listConversations(userId = 0) {
-  return request.get('/chat/conversations', { params: { userId } })
+export function listConversations({ userId = 0, page = 1, size = 1000 } = {}) {
+  return request.get('/chat/conversations', { params: { userId, page, size } })
 }
 
 /**
@@ -141,8 +141,8 @@ export function listMessages(conversationId) {
 /**
  * 后台管理 - 用户列表（需管理员身份）
  */
-export function listUsers() {
-  return request.get('/user/list')
+export function listUsers({ page = 1, size = 1000 } = {}) {
+  return request.get('/user/list', { params: { page, size } })
 }
 
 /**

@@ -2,7 +2,8 @@ package com.x.xaiagent.service;
 
 import com.x.xaiagent.dto.PointAdjustDTO;
 import com.x.xaiagent.dto.PointRuleDTO;
-import com.x.xaiagent.vo.AdminPointPageVO;
+import com.x.xaiagent.vo.AdminPointUserVO;
+import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.PointRecordVO;
 import com.x.xaiagent.vo.PointSummaryVO;
 
@@ -50,7 +51,7 @@ public interface PointService {
     /**
      * 用户积分分页列表：余额/累计获得/累计消费/最近变动，keyword 用户名模糊匹配。
      */
-    AdminPointPageVO pageUsers(String keyword, int page, int size);
+    PageVO<AdminPointUserVO> pageUsers(String keyword, int page, int size);
 
     /**
      * 后台人工调整积分：写 ADMIN_ADJUST 流水 + 原子变更余额（减分不可扣成负数）。

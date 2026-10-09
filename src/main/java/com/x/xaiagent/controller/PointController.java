@@ -7,7 +7,8 @@ import com.x.xaiagent.dto.PointAdjustDTO;
 import com.x.xaiagent.dto.PointRuleDTO;
 import com.x.xaiagent.interceptor.RequireRole;
 import com.x.xaiagent.service.PointService;
-import com.x.xaiagent.vo.AdminPointPageVO;
+import com.x.xaiagent.vo.AdminPointUserVO;
+import com.x.xaiagent.vo.PageVO;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,7 +47,7 @@ public class PointController {
     /** 用户积分列表（对齐前端 GET /admin/points/users?keyword=&page=&size=，默认 20 条/页） */
     @GetMapping("/users")
     @RequireRole(RoleConstants.ADMIN)
-    public R<AdminPointPageVO> users(@RequestParam(required = false) String keyword,
+    public R<PageVO<AdminPointUserVO>> users(@RequestParam(required = false) String keyword,
                                      @RequestParam(defaultValue = "1") int page,
                                      @RequestParam(defaultValue = "20") int size) {
         return R.ok(pointService.pageUsers(keyword, page, size));

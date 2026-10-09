@@ -1,6 +1,7 @@
 package com.x.xaiagent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.x.xaiagent.entity.ChatMessage;
 import com.x.xaiagent.entity.ChatMessageCitation;
@@ -8,6 +9,7 @@ import com.x.xaiagent.entity.ConversationVO;
 import com.x.xaiagent.mapper.ChatMessageMapper;
 import com.x.xaiagent.service.ChatMessageService;
 import com.x.xaiagent.service.ChatMessageCitationService;
+import com.x.xaiagent.vo.PageVO;
 import jakarta.annotation.Resource;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
@@ -45,11 +47,20 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     }
 
     @Override
-    public List<ConversationVO> listConversations(Long userId) {
+    public PageVO<ConversationVO> listConversations(Long userId, int page, int size) {
         if (userId == null) {
             userId = 0L;
         }
-        return baseMapper.listConversations(userId);
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        Page<ConversationVO> pageQuery = new Page<>(safePage, safeSize);
+        baseMapper.listConversations(pageQuery, userId);
+
+        PageVO<ConversationVO> vo = new PageVO<>();
+        vo.setList(pageQuery.getRecords());
+        vo.setTotal(pageQuery.getTotal());
+        return vo;
     }
 
     @Override
