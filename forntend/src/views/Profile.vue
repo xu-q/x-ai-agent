@@ -214,7 +214,7 @@
                   v-for="cell in signCalendar"
                   :key="cell.key"
                   class="cal-cell"
-                  :class="{ today: cell.today, future: cell.future, pad: cell.pad }"
+                  :class="{ today: cell.today, future: cell.future, pad: cell.pad, signed: cell.signed }"
                 >
                   {{ cell.day }}
                 </span>
@@ -1018,6 +1018,8 @@ const signCalendar = computed(() => {
   const y = now.getFullYear()
   const m = now.getMonth()
   const todayKey = dateKey(now)
+  // 已签日期集合：兼容后端返回 '2026-10-08' 或带时间的 '2026-10-08 00:00:00'
+  const signedKeys = new Set((sign.value.recentDates ?? []).map((d) => String(d).slice(0, 10)))
   const daysInMonth = new Date(y, m + 1, 0).getDate()
   // 周一起始偏移：getDay() 周日为 0
   const offset = (new Date(y, m, 1).getDay() + 6) % 7
@@ -1025,7 +1027,7 @@ const signCalendar = computed(() => {
   for (let i = 0; i < offset; i++) cells.push({ key: `pad-${i}`, day: '', pad: true })
   for (let d = 1; d <= daysInMonth; d++) {
     const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    cells.push({ key, day: d, today: key === todayKey, future: key > todayKey })
+    cells.push({ key, day: d, today: key === todayKey, future: key > todayKey, signed: signedKeys.has(key) })
   }
   return cells
 })
@@ -2942,6 +2944,12 @@ onBeforeUnmount(stopPolling)
 
 .cal-cell.future {
   color: #c9cdd4;
+}
+
+.cal-cell.signed {
+  background: rgba(114, 45, 209, 0.1);
+  color: #722ed1;
+  font-weight: 700;
 }
 
 .cal-cell.today {
