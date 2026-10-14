@@ -918,7 +918,7 @@ async function loadInfo() {
       // 同步本地身份，首页胶囊 / 聊天室头像共用（token 传 null 不覆盖）
       const merged = { ...user.value, ...res.data, name: res.data.username || user.value?.name }
       user.value = merged
-      saveAuthUser(merged, null)
+      saveAuthUser(merged)
     }
   } catch (e) {
     if (e.response?.status === 401) {
@@ -944,7 +944,7 @@ async function savePhone() {
     info.value.phone = res.data?.phone || phone
     // 同步本地身份（token 传 null 不覆盖）
     user.value = { ...user.value, phone: info.value.phone }
-    saveAuthUser(user.value, null)
+    saveAuthUser(user.value)
     showToast('手机号已更新', 'success')
     phoneDraft.value = info.value.phone
   } catch (e) {
@@ -998,7 +998,7 @@ async function doUpload(file) {
     // 合并本地身份（token 传 null 不覆盖）
     const merged = { ...user.value, avatar: url }
     user.value = merged
-    saveAuthUser(merged, null)
+    saveAuthUser(merged)
     showToast('头像已更新', 'success')
   } catch (e) {
     if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)

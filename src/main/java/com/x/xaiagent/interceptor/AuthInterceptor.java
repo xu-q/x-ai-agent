@@ -1,10 +1,9 @@
 package com.x.xaiagent.interceptor;
 
-import com.x.xaiagent.comment.JwtTokenProvider;
 import com.x.xaiagent.context.UserContext;
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -13,19 +12,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.io.IOException;
 
 /**
- * 鉴权拦截器：
- * 1. 解析 Authorization: Bearer <token>
- * 2. 校验通过后填充 UserContext
- * 3. 方法标注 @RequireRole 时做角色门禁（无 token → 401，角色不符 → 403）
+ * 鉴权拦截器（Spring Session 版）：
+ * 1. 从 HttpSession（Redis 存储，由 SessionRepositoryFilter 解析 Authorization: Bearer）读取 userId/role
+ * 2. 填充 UserContext
+ * 3. 方法标注 @RequireRole 时做角色门禁（未登录 → 401，角色不符 → 403）
  */
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
-
-    private final JwtTokenProvider jwtTokenProvider;
-
-    public AuthInterceptor(JwtTokenProvider jwtTokenProvider) {
-        this.jwtTokenProvider = jwtTokenProvider;
-    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
@@ -35,21 +28,20 @@ public class AuthInterceptor implements HandlerInterceptor {
         HandlerMethod hm = (HandlerMethod) handler;
         RequireRole requireRole = hm.getMethodAnnotation(RequireRole.class);
 
-        String token = resolveToken(request);
-        if (token == null || !jwtTokenProvider.validateToken(token)) {
-            if (requireRole != null) {
-                writeJson(response, HttpStatus.UNAUTHORIZED.value(), "未登录或登录已过期");
-                return false;
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            String userId = (String) session.getAttribute("userId");
+            if (userId != null) {
+                UserContext.set(userId, (String) session.getAttribute("role"));
             }
-            // 无角色要求的方法，允许匿名访问
-            return true;
         }
-
-        Claims claims = jwtTokenProvider.parseToken(token);
-        UserContext.set(claims.getSubject(), claims.get("role", String.class));
 
         if (requireRole != null) {
             String role = UserContext.getRole();
+            if (role == null) {
+                writeJson(response, HttpStatus.UNAUTHORIZED.value(), "未登录或登录已过期");
+                return false;
+            }
             boolean allowed = false;
             for (String r : requireRole.value()) {
                 if (r.equals(role)) {
@@ -68,14 +60,6 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         UserContext.clear();
-    }
-
-    private String resolveToken(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            return header.substring(7).trim();
-        }
-        return null;
     }
 
     private void writeJson(HttpServletResponse response, int status, String message) throws IOException {

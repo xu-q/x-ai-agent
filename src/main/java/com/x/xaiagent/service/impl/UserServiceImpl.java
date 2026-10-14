@@ -3,8 +3,8 @@ package com.x.xaiagent.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.x.xaiagent.comment.JwtTokenProvider;
 import com.x.xaiagent.constant.RoleConstants;
+import com.x.xaiagent.context.UserContext;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;
 import com.x.xaiagent.globalExceptionHandler.BusinessException;
@@ -12,8 +12,6 @@ import com.x.xaiagent.mapper.UserMapper;
 import com.x.xaiagent.service.UserService;
 import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.UserVO;
-import io.jsonwebtoken.JwtException;
-import jakarta.servlet.http.HttpServletRequest;
 import org.mindrot.jbcrypt.BCrypt;
 import jakarta.annotation.Resource;
 import org.springframework.http.HttpStatus;
@@ -22,15 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
-
-    @Resource
-    private JwtTokenProvider jwtTokenProvider;
 
     private User getByUsername(String username) {
         return getOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
@@ -61,7 +54,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Map<String, Object> login(String username, String password) {
+    public UserVO login(String username, String password) {
         User u = getByUsername(username);
         if (u == null || u.getStatus() == null || u.getStatus() != 1) {
             throw new BusinessException("用户不存在或已禁用");
@@ -69,11 +62,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!BCrypt.checkpw(password, u.getPassword())) {
             throw new BusinessException("用户名或密码错误");
         }
-        String token = jwtTokenProvider.generateToken(u.getId(), u.getRole());
-        Map<String, Object> result = new HashMap<>(2);
-        result.put("token", token);
-        result.put("user", UserVO.from(u));
-        return result;
+        // 会话创建由 Controller 用 HttpSession 完成；此处只返回用户信息
+        return UserVO.from(u);
     }
 
     @Override
@@ -173,31 +163,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public UserVO getCurrentUser(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+    public UserVO getCurrentUser() {
+        // 拦截器已校验会话并填充 UserContext；未登录返回 null
+        String userId = UserContext.getUserId();
+        if (userId == null) {
             return null;
         }
-        return getUser(parseUserId(header.substring(7).trim()));
-    }
-
-    /** 从 token 解析 userId；token 无效 / 过期统一抛 401 业务异常，避免落入 500 兜底 */
-    private String parseUserId(String token) {
-        try {
-            return jwtTokenProvider.parseToken(token).getSubject();
-        } catch (JwtException e) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED.value(), "登录已过期或 token 无效");
-        }
+        User u = getById(userId);
+        return u == null ? null : UserVO.from(u);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public UserVO updateProfile(UserRegisterDTO dto, HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED.value(), "未登录或 token 缺失");
+    public UserVO updateProfile(UserRegisterDTO dto) {
+        String userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED.value(), "未登录或登录已过期");
         }
-        String userId = parseUserId(header.substring(7).trim());
         User u = getById(userId);
         if (u == null) {
             throw new BusinessException("用户不存在");

@@ -10,6 +10,7 @@ import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.UserVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,8 +20,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/user")
@@ -35,15 +34,26 @@ public class UserController {
         return R.ok(userService.register(dto));
     }
 
-    /** 登录，返回 JWT 与用户信息 */
+    /**
+     * 登录：创建 Spring Session 会话（Redis 存储），框架自动写 SESSION cookie。
+     * 前端请求带 withCredentials，浏览器自动携带 cookie，无需手动管理 token。
+     */
     @PostMapping("/login")
-    public R<Map<String, Object>> login(@RequestBody UserLoginDTO dto) {
-        return R.ok(userService.login(dto.getUsername(), dto.getPassword()));
+    public R<UserVO> login(@RequestBody UserLoginDTO dto, HttpServletRequest request) {
+        UserVO user = userService.login(dto.getUsername(), dto.getPassword());
+        HttpSession session = request.getSession(true);
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("role", user.getRole());
+        return R.ok(user);
     }
 
-    /** 退出登录（无状态 JWT，客户端丢弃 token 即可；此处仅作约定占位） */
+    /** 退出登录：失效当前会话，cookie 随之失效 */
     @PostMapping("/logout")
-    public R<String> logout() {
+    public R<String> logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
         return R.ok("已退出登录");
     }
 
@@ -51,7 +61,7 @@ public class UserController {
     @GetMapping("/list")
     @RequireRole(RoleConstants.ADMIN)
     public R<PageVO<UserVO>> listUsers(@RequestParam(defaultValue = "1") int page,
-                                   @RequestParam(defaultValue = "20") int size) {
+                                       @RequestParam(defaultValue = "20") int size) {
         return R.ok(userService.listUsers(page, size));
     }
 
@@ -83,17 +93,15 @@ public class UserController {
         return R.ok(userService.removeUser(id));
     }
 
-    /**
-     * 获取当前登录用户信息
-     */
+    /** 获取当前登录用户信息（拦截器已填充 UserContext） */
     @GetMapping("/info")
-    public R<UserVO> getCurrentUser(HttpServletRequest request) {
-        return R.ok(userService.getCurrentUser(request));
+    public R<UserVO> getCurrentUser() {
+        return R.ok(userService.getCurrentUser());
     }
 
     /** 当前登录用户更新自己的资料（仅限头像 / 手机号，防越权） */
     @PutMapping("/profile")
-    public R<UserVO> updateProfile(@RequestBody UserRegisterDTO dto, HttpServletRequest request) {
-        return R.ok(userService.updateProfile(dto, request));
+    public R<UserVO> updateProfile(@RequestBody UserRegisterDTO dto) {
+        return R.ok(userService.updateProfile(dto));
     }
 }

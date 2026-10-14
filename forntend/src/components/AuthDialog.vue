@@ -96,12 +96,12 @@ function switchTab(tab) {
 }
 
 // 统一出口：写存储 + 通知父组件（guest 存在时为游客登录，父组件可展示账号提示）
-function finish(u, token, guest) {
-  saveAuthUser(u, token)
+function finish(u, guest) {
+  saveAuthUser(u)
   authName.value = ''
   authPwd.value = ''
   authPhone.value = ''
-  emit('authenticated', { user: u, token, guest })
+  emit('authenticated', { user: u, guest })
 }
 
 // 游客登录：自动注册 GUEST 角色账号并登录
@@ -116,8 +116,8 @@ async function guestLogin() {
       // 注册失败（如用户名重复）也尝试直接登录，保证能进入
     }
     const res = await userLogin(guestName, guestPwd)
-    const { user: u, token } = res.data
-    finish({ id: u.id, name: u.username, role: u.role || 'GUEST' }, token, { name: guestName, pwd: guestPwd })
+    const u = res.data
+    finish({ id: u.id, name: u.username, role: u.role || 'GUEST' }, { name: guestName, pwd: guestPwd })
   } catch (err) {
     authError.value = `游客登录失败：${err.message}`
   } finally {
@@ -148,7 +148,7 @@ async function submitAuth() {
       authSuccess.value = '注册成功，正在登录...'
     }
     const res = await userLogin(authName.value, authPwd.value)
-    const { user: u, token } = res.data
+    const u = res.data
     // 登录成功后按勾选状态保存 / 清除记住的账号密码
     if (authTab.value === 'login') {
       if (rememberMe.value) {
@@ -160,7 +160,7 @@ async function submitAuth() {
         localStorage.removeItem(REMEMBER_KEY)
       }
     }
-    finish({ id: u.id, name: u.username, role: u.role }, token)
+    finish({ id: u.id, name: u.username, role: u.role })
   } catch (err) {
     // 拦截器已统一将后端 message 写入 err.message
     const msg = err.message || '请求失败'

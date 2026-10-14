@@ -5,17 +5,14 @@ import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;
 import com.x.xaiagent.vo.PageVO;
 import com.x.xaiagent.vo.UserVO;
-import jakarta.servlet.http.HttpServletRequest;
-
-import java.util.Map;
 
 public interface UserService extends IService<User> {
 
     /** 自助注册（默认角色 USER） */
     UserVO register(UserRegisterDTO dto);
 
-    /** 登录校验并签发 JWT，返回 token 与用户信息 */
-    Map<String, Object> login(String username, String password);
+    /** 登录校验密码，返回用户信息（会话创建由 Controller 用 HttpSession 完成） */
+    UserVO login(String username, String password);
 
     /** 管理员新建用户（可指定角色） */
     UserVO saveUser(UserRegisterDTO dto);
@@ -35,8 +32,9 @@ public interface UserService extends IService<User> {
     /** 逻辑删除用户 */
     boolean removeUser(String id);
 
-    UserVO getCurrentUser(HttpServletRequest request);
+    /** 当前登录用户信息（拦截器已填充 UserContext） */
+    UserVO getCurrentUser();
 
     /** 当前登录用户更新自己的资料（仅限头像 / 手机号，防越权） */
-    UserVO updateProfile(UserRegisterDTO dto, HttpServletRequest request);
+    UserVO updateProfile(UserRegisterDTO dto);
 }

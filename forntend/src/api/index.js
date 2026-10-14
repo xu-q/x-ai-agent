@@ -4,7 +4,8 @@ const BASE_URL = '/api'
 
 const request = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000
+  timeout: 30000,
+  withCredentials: true          // 跨域时携带/接收 Spring Session 的 SESSION cookie
 })
 
 // ===== 登录态存储：sessionStorage + 会话 Cookie 双写 =====
@@ -22,22 +23,16 @@ function removeCookie(name) {
   document.cookie = `${name}=; path=/; max-age=0`
 }
 
-// 保存登录身份与 token（双写 sessionStorage 和会话 Cookie）
-export function saveAuthUser(user, token) {
+// 保存登录身份（会话由 Spring Session 的 SESSION cookie 管理，前端只存用户信息用于展示）
+export function saveAuthUser(user) {
   sessionStorage.setItem('chat-user', JSON.stringify(user))
   setCookie('chat-user', JSON.stringify(user))
-  if (token) {
-    sessionStorage.setItem('chat-token', token)
-    setCookie('chat-token', token)
-  }
 }
 
 // 清除登录态（登出或 401）
 export function clearAuth() {
   sessionStorage.removeItem('chat-user')
-  sessionStorage.removeItem('chat-token')
   removeCookie('chat-user')
-  removeCookie('chat-token')
 }
 
 // 模块加载时兜底恢复：sessionStorage 为空（如新标签页）时从会话 Cookie 恢复
@@ -45,19 +40,10 @@ if (!sessionStorage.getItem('chat-user')) {
   const savedUser = getCookie('chat-user')
   if (savedUser) {
     sessionStorage.setItem('chat-user', savedUser)
-    const savedToken = getCookie('chat-token')
-    if (savedToken) sessionStorage.setItem('chat-token', savedToken)
   }
 }
 
-// 请求拦截器：自动带上 token
-request.interceptors.request.use(config => {
-  const token = sessionStorage.getItem('chat-token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
+// 登录态由 Spring Session 的 SESSION cookie 自动携带（withCredentials），无需手动注入 token
 
 // 响应拦截器：统一解包 R<T> 响应体
 request.interceptors.response.use(
