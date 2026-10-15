@@ -823,7 +823,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import { showToast } from '../utils/toast'
 import { useRouter } from 'vue-router'
 import {
@@ -1291,7 +1291,6 @@ const roleOptions = [
   { value: 'GUEST', label: '游客' }
 ]
 const userSort = createSortState()
-const usersLoaded = ref(false)
 
 const filteredUsers = computed(() => {
   let list = users.value
@@ -1331,7 +1330,6 @@ async function loadUsers() {
   try {
     const res = await listUsers({ size: 1000 })
     users.value = res.data?.list || []
-    usersLoaded.value = true
   } catch (e) {
     usersError.value = e.message || '加载用户列表失败，请稍后再试'
   } finally {
@@ -1418,7 +1416,6 @@ const statsTotalUsers = ref(0)
 const trend = ref({ dates: [], newUsers: [], userTotals: [] })
 const trendDays = ref(20)
 const statsHint = ref('')
-const statsLoaded = ref(false)
 
 const statCards = computed(() => [
   { label: '今日签到人数', value: statsSignToday.value },
@@ -1569,56 +1566,50 @@ function handleReadAll() {
   markAllNoticesRead().catch(() => {})
 }
 
-// 管理类 tab 首次进入时再加载（仅管理员；immediate 覆盖默认 tab 的场景）；通知在页面加载时请求
+// 点击 tab 时刷新当前 tab 数据（immediate: true 覆盖默认 tab 的首次加载）
 watch(
   activeTab,
   (tab) => {
-    // 积分明细对所有用户可见，需在 admin 守卫前加载
-    if (tab === 'points' && !pointsLoaded.value) {
+    // 所有用户可见的 tab 在 admin 守卫前处理
+    if (tab === 'profile') {
+      loadInfo()
+      loadSignInfo()
+    } else if (tab === 'vip') {
+      loadPlans()
+      loadMembership()
+    } else if (tab === 'notice') {
+      loadNotices()
+    } else if (tab === 'points') {
       loadPoints()
-    }
-    if (!isAdmin.value) return
-    if (tab === 'users' && !usersLoaded.value) {
+    } else if (!isAdmin.value) {
+      return
+    } else if (tab === 'messages') {
+      loadConversations()
+    } else if (tab === 'users') {
       loadUsers()
-    }
-    if (tab === 'stats' && !statsLoaded.value) {
-      statsLoaded.value = true
+    } else if (tab === 'stats') {
       loadStatsOverview()
       loadTrend()
-    }
-    if (tab === 'plans' && !adminPlansLoaded.value) {
+    } else if (tab === 'plans') {
       loadAdminPlans()
-    }
-    if (tab === 'publish' && !adminNoticesLoaded.value) {
-      loadAdminNotices()
-    }
-    if (tab === 'pointsAdmin' && !pointsAdminLoaded.value) {
+    } else if (tab === 'pointsAdmin') {
       loadPointsRules()
       loadPointsUsers()
+    } else if (tab === 'publish') {
+      loadAdminNotices()
     }
   },
   { immediate: true }
 )
 
-onMounted(() => {
-  loadInfo()
-  loadSignInfo()
-  loadNotices()
-  loadPlans()
-  loadMembership()
-  if (isAdmin.value) loadConversations()
-})
-
 // ===== 会员管理（仅管理员）=====
 const adminPlans = ref([])
-const adminPlansLoaded = ref(false)
 const adminPlansHint = ref('')
 const planEditVisible = ref(false)
 const planSaving = ref(false)
 const planForm = ref({ key: '', name: '', price: 0, originalPrice: 0, days: 30, desc: '', onSale: true })
 
 async function loadAdminPlans() {
-  adminPlansLoaded.value = true
   adminPlansHint.value = ''
   try {
     const res = await listMembershipPlans()
@@ -1677,7 +1668,6 @@ function applyPlanChange(f) {
 const scopeLabels = { ADMIN: '管理员', USER: '用户', GUEST: '游客' }
 const statusLabels = { DRAFT: '草稿', PUBLISHED: '已发布', WITHDRAWN: '已撤回' }
 const adminNotices = ref([])
-const adminNoticesLoaded = ref(false)
 const adminNoticesHint = ref('')
 const noticeTypeFilter = ref('ALL')
 const noticeStatusFilter = ref('ALL')
@@ -1717,7 +1707,6 @@ const filteredAdminNotices = computed(() =>
 )
 
 async function loadAdminNotices() {
-  adminNoticesLoaded.value = true
   adminNoticesHint.value = ''
   try {
     const res = await listAdminNotices()
@@ -1820,7 +1809,6 @@ async function batchRemoveNotices() {
 // ===== 积分明细（用户）=====
 const pointsSummary = ref({ balance: 0, totalEarned: 0, totalSpent: 0 })
 const pointsRecords = ref([])
-const pointsLoaded = ref(false)
 const pointsHint = ref('')
 const pointsFilter = ref('ALL')
 
@@ -1835,7 +1823,6 @@ const recordMeta = (type) => pointTypeLabels[type] || '其他'
 const fmtPoints = (n) => (n > 0 ? `+${n}` : `${n}`)
 
 async function loadPoints() {
-  pointsLoaded.value = true
   pointsHint.value = ''
   try {
     const [sumRes, recRes] = await Promise.all([getUserPointsSummary(), getUserPointsRecords()])
@@ -1857,7 +1844,6 @@ const pointsRules = ref({ ...DEFAULT_POINT_RULES })
 const rulesSaving = ref(false)
 const rulesHint = ref('')
 const pointsUsers = ref([])
-const pointsAdminLoaded = ref(false)
 const pointsUsersHint = ref('')
 const pointsKeyword = ref('')
 const pointAdjustVisible = ref(false)
@@ -1913,7 +1899,6 @@ async function saveRules() {
 }
 
 async function loadPointsUsers() {
-  pointsAdminLoaded.value = true
   pointsUsersHint.value = ''
   try {
     const res = await listPointsUsers({
