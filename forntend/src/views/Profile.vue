@@ -39,7 +39,7 @@
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
           </svg>
-          <!-- 会员中心 -->
+          <!-- 充值中心 -->
           <svg v-else-if="tab.key === 'vip'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 17l2-9 5 5 2-7 2 7 5-5 2 9H3z"/>
             <path d="M3 21h18"/>
@@ -224,38 +224,52 @@
           </div>
         </template>
 
-        <!-- 会员中心 -->
+        <!-- 充值中心：积分充值 -->
         <template v-else-if="activeTab === 'vip'">
           <header class="panel-head">
-            <h2 class="panel-title">会员中心</h2>
-            <span class="panel-tag">Vip Center</span>
+            <h2 class="panel-title">充值中心</h2>
+            <span class="panel-tag">Points Recharge</span>
           </header>
-          <div class="vip-status" :class="{ 'vip-on': vip.isVip }">
-            <div class="vip-status-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 17l2-9 5 5 2-7 2 7 5-5 2 9H3z"/>
-              </svg>
+
+          <div class="points-wallet">
+            <div class="points-wallet-num">
+              <strong>{{ (pointsSummary.balance ?? 0).toLocaleString() }}</strong>
+              <span>当前积分余额</span>
             </div>
-            <div class="vip-status-text">
-              <strong>{{ vip.isVip ? '会员生效中' : '普通用户' }}</strong>
-              <span v-if="vip.isVip && vip.expireTime">有效期至 {{ formatTime(vip.expireTime) }}</span>
-              <span v-else>开通会员享受专属权益</span>
-            </div>
+            <div class="points-wallet-rate">充值比例<br />1 元 = 100 积分</div>
           </div>
 
           <div class="vip-plans">
             <div
-              v-for="plan in onSalePlans"
-              :key="plan.key"
-              class="vip-card"
-              :class="{ selected: selectedPlan === plan.key }"
-              @click="selectedPlan = plan.key"
+              v-for="pkg in pointPackages"
+              :key="pkg.key"
+              class="vip-card point-card"
+              :class="{ selected: selectedPoints === pkg.key }"
+              @click="selectPointsPackage(pkg.key)"
             >
-              <span v-if="plan.originalPrice > plan.price" class="vip-origin">¥{{ plan.originalPrice }}</span>
-              <span class="vip-name">{{ plan.name }}</span>
-              <span class="vip-price"><em>¥</em>{{ plan.price }}</span>
-              <span class="vip-desc">{{ plan.desc }}</span>
+              <span v-if="pkg.tag" class="point-tag">{{ pkg.tag }}</span>
+              <span class="point-amount"><em>{{ pkg.points.toLocaleString() }}</em>积分</span>
+              <span class="vip-price"><em>¥</em>{{ pkg.price }}</span>
+              <span class="vip-desc">{{ pkg.desc }}</span>
             </div>
+          </div>
+
+          <div class="custom-amount" :class="{ on: selectedPoints === 'CUSTOM' }">
+            <span class="custom-label">自定义金额</span>
+            <div class="custom-input">
+              <em>¥</em>
+              <input
+                v-model.trim="customAmount"
+                type="number"
+                min="1"
+                max="1000"
+                placeholder="1 ~ 1000"
+                @focus="selectedPoints = 'CUSTOM'"
+              />
+            </div>
+            <span class="custom-points">
+              可得 <strong>{{ customPointsEarned ? customPointsEarned.toLocaleString() : '--' }}</strong> 积分
+            </span>
           </div>
 
           <div class="channel-row">
@@ -274,8 +288,11 @@
             </div>
           </div>
 
-          <button class="pay-btn" :disabled="payLoading" @click="createOrder">
-            {{ payLoading ? '正在创建订单...' : `立即开通 ¥${selectedPlanInfo.price}` }}
+          <button class="pay-btn" :disabled="payLoading || !selectedPointsInfo" @click="createOrder">
+            <template v-if="payLoading">正在创建订单...</template>
+            <template v-else>
+              立即充值 ¥{{ selectedPointsInfo?.price ?? 0 }}（得 {{ (selectedPointsInfo?.points ?? 0).toLocaleString() }} 积分）
+            </template>
           </button>
         </template>
 
@@ -687,15 +704,15 @@
         </button>
         <h2 class="pay-title">扫码支付</h2>
         <p class="pay-amount">
-          {{ selectedChannelInfo.name }} · {{ selectedPlanInfo.name }}
-          <strong>¥{{ selectedPlanInfo.price }}</strong>
+          {{ selectedChannelInfo.name }} · {{ payOrder?.name }}
+          <strong>¥{{ payOrder?.price }}</strong>
         </p>
         <div class="pay-qr">
           <img v-if="payQr" :src="payQr" alt="支付二维码" />
           <span v-else class="pay-qr-placeholder">二维码生成中...</span>
         </div>
         <p class="pay-hint">请使用{{ selectedChannelInfo.name }}扫码完成支付</p>
-        <p class="pay-status">{{ paid ? '支付成功，会员已开通' : '等待支付中...' }}</p>
+        <p class="pay-status">{{ paid ? '支付成功，积分已到账' : '等待支付中...' }}</p>
       </div>
     </div>
 
@@ -840,9 +857,8 @@ import {
   markNoticeRead,
   markAllNoticesRead,
   getMembership,
-  getMembershipPlans,
-  createPayOrder,
-  getPayStatus,
+  createPointsOrder,
+  getPointsOrderStatus,
   listMembershipPlans,
   updateMembershipPlan,
   listAdminNotices,
@@ -885,7 +901,7 @@ const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
 const baseTabs = [
   { key: 'profile', label: '个人中心', color: '#722ed1' },
-  { key: 'vip', label: '会员中心', color: '#ff7d00' },
+  { key: 'vip', label: '充值中心', color: '#ff7d00' },
   { key: 'points', label: '积分明细', color: '#6fae00' },
   { key: 'notice', label: '系统通知', color: '#f53f3f' }
 ]
@@ -1084,31 +1100,60 @@ async function handleSign() {
   }
 }
 
-// ===== 会员中心 =====
-// 默认价兜底；接口就绪后以管理端调价结果为准
+// ===== 充值中心 =====
+// 会员套餐默认价兜底（供会员管理 tab 调价展示）；积分档位见下方
 const DEFAULT_PLANS = [
   { key: 'MONTH', name: '月卡', price: 25, originalPrice: 35, days: 30, desc: '按月开通', onSale: true },
   { key: 'QUARTER', name: '季卡', price: 68, originalPrice: 90, days: 90, desc: '折合 ¥22.7/月', onSale: true },
   { key: 'YEAR', name: '年卡', price: 238, originalPrice: 300, days: 365, desc: '折合 ¥19.8/月', onSale: true }
 ]
-const plans = ref(DEFAULT_PLANS.map((p) => ({ ...p })))
-// 用户侧仅展示上架套餐
-const onSalePlans = computed(() => plans.value.filter((p) => p.onSale !== false))
-const selectedPlan = ref('MONTH')
-const selectedPlanInfo = computed(() => plans.value.find((p) => p.key === selectedPlan.value))
 
-async function loadPlans() {
+// ===== 积分充值（1 元 = 100 积分；档位为前端预设，后端就绪后可接管控价）=====
+const DEFAULT_POINT_PACKAGES = [
+  { key: 'P1000', points: 1000, price: 10, desc: '新用户体验' },
+  { key: 'P5000', points: 5000, price: 45, tag: '约9折', desc: '日常使用' },
+  { key: 'P10000', points: 10000, price: 88, tag: '8.8折', desc: '重度使用' }
+]
+const pointPackages = ref(DEFAULT_POINT_PACKAGES.map((p) => ({ ...p })))
+const selectedPoints = ref('P1000')
+const customAmount = ref('')
+
+// 选择档位时清空自定义金额
+function selectPointsPackage(key) {
+  selectedPoints.value = key
+  customAmount.value = ''
+}
+
+// 自定义金额一有输入即切入 CUSTOM 模式（focus 兜底，避免跳过聚焦事件的场景）
+watch(customAmount, (v) => {
+  if (v !== '' && selectedPoints.value !== 'CUSTOM') {
+    selectedPoints.value = 'CUSTOM'
+  }
+})
+
+// 自定义金额换算积分（1~1000 元，非法输入得 0）
+const customPointsEarned = computed(() => {
+  const amt = Number(customAmount.value)
+  if (!customAmount.value || Number.isNaN(amt) || amt < 1 || amt > 1000) return 0
+  return Math.floor(amt * 100)
+})
+
+// 当前生效的充值信息（档位或自定义）
+const selectedPointsInfo = computed(() => {
+  if (selectedPoints.value === 'CUSTOM') {
+    return customPointsEarned.value
+      ? { key: 'CUSTOM', points: customPointsEarned.value, price: Number(customAmount.value) }
+      : null
+  }
+  return pointPackages.value.find((p) => p.key === selectedPoints.value) || null
+})
+
+// 余额卡数据（与积分明细 tab 共用 pointsSummary，静默容错）
+async function loadPointsBalance() {
   try {
-    const res = await getMembershipPlans()
-    const list = res.data?.list
-    if (Array.isArray(list) && list.length) {
-      plans.value = list
-      const cur = plans.value.find((p) => p.key === selectedPlan.value)
-      if (!cur || cur.onSale === false) {
-        selectedPlan.value = plans.value.find((p) => p.onSale !== false)?.key || selectedPlan.value
-      }
-    }
-  } catch { /* 后端未就绪时用默认价 */ }
+    const res = await getUserPointsSummary()
+    if (res.data) pointsSummary.value = res.data
+  } catch { /* 静默：余额卡按 0 展示 */ }
 }
 
 const channels = [
@@ -1133,13 +1178,27 @@ const payLoading = ref(false)
 const payQr = ref('')
 const payOrderId = ref('')
 const paid = ref(false)
+// 当前订单摘要（弹窗展示用）：{ name, price, points }
+const payOrder = ref(null)
 let pollTimer = null
 let pollFails = 0
 
 async function createOrder() {
+  // 本地校验：档位缺失或自定义金额非法
+  if (!selectedPointsInfo.value) {
+    showToast('请选择充值档位或输入 1~1000 元的自定义金额', 'error')
+    return
+  }
   payLoading.value = true
   try {
-    const res = await createPayOrder(selectedPlan.value, selectedChannel.value)
+    const info = selectedPointsInfo.value
+    payOrder.value = { name: `${info.points.toLocaleString()} 积分`, price: info.price, points: info.points }
+    const res = await createPointsOrder({
+      packageKey: info.key,
+      points: info.points,
+      amount: info.price,
+      channel: selectedChannel.value
+    })
     payOrderId.value = res.data?.orderId || ''
     payQr.value = res.data?.qrCodeUrl || ''
     paid.value = false
@@ -1162,14 +1221,15 @@ function startPolling() {
   pollFails = 0
   pollTimer = setInterval(async () => {
     try {
-      const res = await getPayStatus(payOrderId.value)
+      const res = await getPointsOrderStatus(payOrderId.value)
       pollFails = 0
       if (res.data?.status === 'SUCCESS') {
         paid.value = true
-        vip.value = { isVip: true, expireTime: res.data?.expireTime || vip.value.expireTime }
+        const earned = res.data?.points ?? payOrder.value.points ?? 0
+        showToast(`充值成功，积分 +${earned.toLocaleString()}`, 'success')
         setTimeout(() => {
           closePay()
-          loadMembership()
+          loadPointsBalance()
         }, 1200)
       }
     } catch {
@@ -1575,7 +1635,7 @@ watch(
       loadInfo()
       loadSignInfo()
     } else if (tab === 'vip') {
-      loadPlans()
+      loadPointsBalance()
       loadMembership()
     } else if (tab === 'notice') {
       loadNotices()
@@ -2806,9 +2866,14 @@ onBeforeUnmount(stopPolling)
   gap: 2px;
 }
 
-/* 积分余额格独占一行，突出数字 */
+/* 积分余额：独占一行，深紫底 + 金色大数字，做成"卡中卡"突出展示 */
 .sign-stat.wide {
   grid-column: span 2;
+  margin-top: 2px;
+  padding: 12px 10px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #722ed1, #9254de);
+  box-shadow: 0 6px 16px rgba(114, 45, 209, 0.35);
 }
 
 .sign-stat strong {
@@ -2828,6 +2893,19 @@ onBeforeUnmount(stopPolling)
   font-size: 12px;
   color: #86909c;
   white-space: nowrap;
+}
+
+/* 余额卡：金色渐变大数字 + 白色标签（需在 point 规则之后覆盖） */
+.sign-stat.wide strong {
+  font-size: 28px;
+  background: linear-gradient(180deg, #ffe58f, #ffc53d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sign-stat.wide span {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .sign-btn {
@@ -3099,50 +3177,7 @@ onBeforeUnmount(stopPolling)
   }
 }
 
-/* ===== 会员中心 ===== */
-.vip-status {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
-  border-radius: 10px;
-  background: #f7f8fa;
-  margin-bottom: 20px;
-}
-
-.vip-status.vip-on {
-  background: linear-gradient(135deg, #fff7ec, #ffefd8);
-}
-
-.vip-status-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 125, 0, 0.1);
-  color: #ff7d00;
-  flex-shrink: 0;
-}
-
-.vip-status-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 13px;
-  color: #86909c;
-}
-
-.vip-status-text strong {
-  font-size: 16px;
-  color: #1f2329;
-}
-
-.vip-status.vip-on .vip-status-text strong {
-  color: #ff7d00;
-}
-
+/* ===== 充值中心（积分充值） ===== */
 .vip-plans {
   display: flex;
   gap: 16px;
@@ -3164,15 +3199,6 @@ onBeforeUnmount(stopPolling)
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
-.vip-origin {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  font-size: 12px;
-  color: #c9cdd4;
-  text-decoration: line-through;
-}
-
 .vip-card:hover {
   transform: translateY(-2px);
 }
@@ -3180,12 +3206,6 @@ onBeforeUnmount(stopPolling)
 .vip-card.selected {
   border-color: #ff7d00;
   box-shadow: 0 4px 14px rgba(255, 125, 0, 0.18);
-}
-
-.vip-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2329;
 }
 
 .vip-price {
@@ -3204,6 +3224,152 @@ onBeforeUnmount(stopPolling)
 .vip-desc {
   font-size: 12px;
   color: #86909c;
+}
+
+/* 积分余额卡：深橙渐变呼应页面主题，数字为视觉焦点 */
+.points-wallet {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 24px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff7d00, #ff9a2e);
+  box-shadow: 0 6px 16px rgba(255, 125, 0, 0.3);
+}
+
+.points-wallet-num {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.points-wallet-num strong {
+  font-family: var(--font-num);
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.points-wallet-num span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.points-wallet-rate {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: right;
+  line-height: 1.6;
+  border-left: 1px dashed rgba(255, 255, 255, 0.5);
+  padding-left: 18px;
+  white-space: nowrap;
+}
+
+/* 积分档位卡：主数字为积分数 */
+.point-card .point-amount {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2329;
+  font-variant-numeric: tabular-nums;
+}
+
+.point-card .point-amount em {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 500;
+  margin-right: 2px;
+}
+
+/* 折扣角标 */
+.point-tag {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 125, 0, 0.12);
+  font-size: 11px;
+  font-weight: 600;
+  color: #ff7d00;
+}
+
+/* 自定义金额行 */
+.custom-amount {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border: 1.5px dashed #e5e6eb;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.custom-amount.on {
+  border-color: #ff7d00;
+}
+
+.custom-label {
+  font-size: 13px;
+  color: #4e5969;
+  white-space: nowrap;
+}
+
+.custom-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  background: #f7f8fa;
+}
+
+.custom-input em {
+  font-style: normal;
+  font-size: 14px;
+  color: #ff7d00;
+  font-weight: 600;
+}
+
+.custom-input input {
+  width: 110px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-num);
+  font-size: 14px;
+  color: #1f2329;
+  outline: none;
+}
+
+.custom-input input::-webkit-outer-spin-button,
+.custom-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-input input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.custom-points {
+  margin-left: auto;
+  font-size: 13px;
+  color: #86909c;
+  white-space: nowrap;
+}
+
+.custom-points strong {
+  font-family: var(--font-num);
+  font-size: 15px;
+  color: #ff7d00;
 }
 
 .channel-row {

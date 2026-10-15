@@ -238,7 +238,7 @@ export function markAllNoticesRead() {
 }
 
 /**
- * 会员中心 - 查询当前会员状态（后端接口待补充）
+ * 充值中心 - 查询当前会员状态（后端接口待补充）
  * GET /membership/current  → { isVip, expireTime }
  */
 export function getMembership() {
@@ -246,7 +246,7 @@ export function getMembership() {
 }
 
 /**
- * 会员中心 - 创建支付订单（后端接口待补充）
+ * 充值中心 - 创建支付订单（后端接口待补充）
  * POST /membership/order  body: { planKey, channel }  → { orderId, qrCodeUrl }
  */
 export function createPayOrder(planKey, channel) {
@@ -254,7 +254,7 @@ export function createPayOrder(planKey, channel) {
 }
 
 /**
- * 会员中心 - 查询支付状态（后端接口待补充）
+ * 充值中心 - 查询支付状态（后端接口待补充）
  * GET /membership/order/{orderId}/status  → { status: 'WAIT' | 'SUCCESS' }
  */
 export function getPayStatus(orderId) {
@@ -262,11 +262,27 @@ export function getPayStatus(orderId) {
 }
 
 /**
- * 会员中心 - 查询在售套餐（后端接口待补充）
+ * 充值中心 - 查询在售套餐（后端接口待补充）
  * GET /membership/plans  → { list: [{ key, name, price, originalPrice, days, desc, onSale }] }
  */
 export function getMembershipPlans() {
   return request.get('/membership/plans')
+}
+
+/**
+ * 充值中心 - 积分充值下单（后端接口待补充）
+ * POST /points/order  body: { packageKey, points, amount, channel }  → { orderId, qrCodeUrl }
+ */
+export function createPointsOrder(data) {
+  return request.post('/points/order', data)
+}
+
+/**
+ * 充值中心 - 积分充值订单状态轮询（后端接口待补充）
+ * GET /points/order/{orderId}/status  → { status: 'WAIT' | 'SUCCESS', points }
+ */
+export function getPointsOrderStatus(orderId) {
+  return request.get(`/points/order/${orderId}/status`)
 }
 
 /**
