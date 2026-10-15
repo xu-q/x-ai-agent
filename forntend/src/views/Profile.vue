@@ -244,7 +244,7 @@
               v-for="pkg in pointPackages"
               :key="pkg.key"
               class="vip-card point-card"
-              :class="{ selected: selectedPoints === pkg.key }"
+              :class="{ selected: selectedPoints === pkg.key, hot: pkg.hot }"
               @click="selectPointsPackage(pkg.key)"
             >
               <span v-if="pkg.tag" class="point-tag">{{ pkg.tag }}</span>
@@ -1108,14 +1108,16 @@ const DEFAULT_PLANS = [
   { key: 'YEAR', name: '年卡', price: 238, originalPrice: 300, days: 365, desc: '折合 ¥19.8/月', onSale: true }
 ]
 
-// ===== 积分充值（1 元 = 100 积分；档位为前端预设，后端就绪后可接管控价）=====
+// ===== 积分充值（基准 1 元 = 100 积分；档位为前端预设，后端就绪后可接管控价）=====
 const DEFAULT_POINT_PACKAGES = [
-  { key: 'P1000', points: 1000, price: 10, desc: '新用户体验' },
-  { key: 'P5000', points: 5000, price: 45, tag: '约9折', desc: '日常使用' },
-  { key: 'P10000', points: 10000, price: 88, tag: '8.8折', desc: '重度使用' }
+  { key: 'P6', points: 1200, price: 6, tag: '首充翻倍限1次', desc: '送600' },
+  { key: 'P18', points: 2400, price: 18, tag: '入门推荐', desc: '送600' },
+  { key: 'P45', points: 6500, price: 45, tag: '热销爆款', desc: '送2000', hot: true },
+  { key: 'P88', points: 14000, price: 88, tag: '尊享超值', desc: '送5200' },
+  { key: 'P128', points: 22000, price: 128, tag: '至尊巨惠', desc: '送9200' }
 ]
 const pointPackages = ref(DEFAULT_POINT_PACKAGES.map((p) => ({ ...p })))
-const selectedPoints = ref('P1000')
+const selectedPoints = ref('P45')
 const customAmount = ref('')
 
 // 选择档位时清空自定义金额
@@ -3221,9 +3223,19 @@ onBeforeUnmount(stopPolling)
   margin-right: 2px;
 }
 
+/* 加赠文案：橙色胶囊徽章（仅积分档位卡使用） */
 .vip-desc {
   font-size: 12px;
-  color: #86909c;
+  font-weight: 600;
+  color: #ff7d00;
+  background: rgba(255, 125, 0, 0.12);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.point-card.hot .vip-desc {
+  background: #ff7d00;
+  color: #fff;
 }
 
 /* 积分余额卡：深橙渐变呼应页面主题，数字为视觉焦点 */
@@ -3283,6 +3295,16 @@ onBeforeUnmount(stopPolling)
   font-size: 14px;
   font-weight: 500;
   margin-right: 2px;
+}
+
+/* 热销爆款档高亮：仅用暖色渐变底+实心角标标记，橙色边框专属选中态，避免与选中卡混淆 */
+.point-card.hot {
+  background: linear-gradient(180deg, #fff7ef, #fff 55%);
+}
+
+.point-card.hot .point-tag {
+  background: #ff7d00;
+  color: #fff;
 }
 
 /* 折扣角标 */
