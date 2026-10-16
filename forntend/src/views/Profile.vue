@@ -277,14 +277,15 @@
               v-for="ch in channels"
               :key="ch.key"
               class="channel-item"
-              :class="{ selected: selectedChannel === ch.key }"
-              @click="selectedChannel = ch.key"
+              :class="{ selected: selectedChannel === ch.key, disabled: ch.disabled }"
+              @click="selectChannel(ch)"
             >
               <svg viewBox="0 0 24 24" width="20" height="20">
                 <rect width="24" height="24" rx="6" :fill="ch.color" />
                 <text x="12" y="16.5" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">{{ ch.glyph }}</text>
               </svg>
               <span>{{ ch.name }}</span>
+              <span v-if="ch.disabled" class="channel-soon">即将上线</span>
             </div>
           </div>
 
@@ -857,6 +858,7 @@ import {
   markNoticeRead,
   markAllNoticesRead,
   getMembership,
+  getPointsPackages,
   createPointsOrder,
   getPointsOrderStatus,
   listMembershipPlans,
@@ -1120,6 +1122,24 @@ const pointPackages = ref(DEFAULT_POINT_PACKAGES.map((p) => ({ ...p })))
 const selectedPoints = ref('P45')
 const customAmount = ref('')
 
+// 拉取后端在售档位（失败时保留前端默认档兜底）
+async function loadPointPackages() {
+  try {
+    const res = await getPointsPackages()
+    const list = res.data
+    if (Array.isArray(list) && list.length) {
+      pointPackages.value = list
+        .map((p) => ({ key: p.key, points: p.totalPoints, price: p.price, tag: p.tag, desc: p.desc, hot: !!p.hot }))
+        .sort((a, b) => a.price - b.price)
+      // 当前选中档失效时，回退到热销档或第一档
+      if (!pointPackages.value.some((p) => p.key === selectedPoints.value)) {
+        const fallback = pointPackages.value.find((p) => p.hot) || pointPackages.value[0]
+        selectedPoints.value = fallback.key
+      }
+    }
+  } catch { /* 静默：保留默认档位 */ }
+}
+
 // 选择档位时清空自定义金额
 function selectPointsPackage(key) {
   selectedPoints.value = key
@@ -1160,9 +1180,15 @@ async function loadPointsBalance() {
 
 const channels = [
   { key: 'ALIPAY', name: '支付宝', glyph: '支', color: '#1677ff' },
-  { key: 'WECHAT', name: '微信支付', glyph: '微', color: '#07c160' }
+  { key: 'WECHAT', name: '微信支付', glyph: '微', color: '#07c160', disabled: true }
 ]
 const selectedChannel = ref('ALIPAY')
+
+// 选择支付渠道（微信暂未开通，置灰不可选）
+function selectChannel(ch) {
+  if (ch.disabled) return
+  selectedChannel.value = ch.key
+}
 const selectedChannelInfo = computed(() => channels.find((c) => c.key === selectedChannel.value))
 
 const vip = ref({ isVip: false, expireTime: '' })
@@ -1197,7 +1223,6 @@ async function createOrder() {
     payOrder.value = { name: `${info.points.toLocaleString()} 积分`, price: info.price, points: info.points }
     const res = await createPointsOrder({
       packageKey: info.key,
-      points: info.points,
       amount: info.price,
       channel: selectedChannel.value
     })
@@ -1211,8 +1236,8 @@ async function createOrder() {
       router.push('/')
       return
     }
-    // 后端就绪后自动展示后端提示信息，未接入时保留占位文案
-    showToast(e.message || '支付服务即将上线，敬请期待', 'error')
+    // 统一展示后端返回的提示信息
+    showToast(e.message || '支付下单失败，请稍后重试', 'error')
   } finally {
     payLoading.value = false
   }
@@ -1237,7 +1262,7 @@ function startPolling() {
     } catch {
       if (++pollFails >= 3) {
         stopPolling()
-        showToast('支付状态查询失败，支付服务即将上线', 'error')
+        showToast('支付状态查询失败，请稍后重试', 'error')
         closePay()
       }
     }
@@ -1638,6 +1663,7 @@ watch(
       loadSignInfo()
     } else if (tab === 'vip') {
       loadPointsBalance()
+      loadPointPackages()
       loadMembership()
     } else if (tab === 'notice') {
       loadNotices()
@@ -3417,6 +3443,27 @@ onBeforeUnmount(stopPolling)
 .channel-item.selected {
   border-color: #ff7d00;
   box-shadow: 0 2px 10px rgba(255, 125, 0, 0.15);
+}
+
+/* 微信支付暂未开通：置灰不可选 */
+.channel-item.disabled {
+  position: relative;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.channel-soon {
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #86909c;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
 }
 
 .pay-btn {

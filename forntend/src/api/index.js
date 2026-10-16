@@ -246,43 +246,27 @@ export function getMembership() {
 }
 
 /**
- * 充值中心 - 创建支付订单（后端接口待补充）
- * POST /membership/order  body: { planKey, channel }  → { orderId, qrCodeUrl }
+ * 充值中心 - 在售积分档位（已对接后端 PointsRechargeController）
+ * GET /points/packages  → { list: [{ key, title, price, totalPoints, bonusPoints, tag, desc, hot, sort }] }
  */
-export function createPayOrder(planKey, channel) {
-  return request.post('/membership/order', { planKey, channel })
+export function getPointsPackages() {
+  return request.get('/points/packages')
 }
 
 /**
- * 充值中心 - 查询支付状态（后端接口待补充）
- * GET /membership/order/{orderId}/status  → { status: 'WAIT' | 'SUCCESS' }
- */
-export function getPayStatus(orderId) {
-  return request.get(`/membership/order/${orderId}/status`)
-}
-
-/**
- * 充值中心 - 查询在售套餐（后端接口待补充）
- * GET /membership/plans  → { list: [{ key, name, price, originalPrice, days, desc, onSale }] }
- */
-export function getMembershipPlans() {
-  return request.get('/membership/plans')
-}
-
-/**
- * 充值中心 - 积分充值下单（后端接口待补充）
- * POST /points/order  body: { packageKey, points, amount, channel }  → { orderId, qrCodeUrl }
+ * 充值中心 - 积分充值下单（已对接后端，返回 base64 二维码图片）
+ * POST /points/order  body: { packageKey, amount, channel }  → { orderId, qrCodeUrl, amount, status: 'WAIT_PAY' }
  */
 export function createPointsOrder(data) {
   return request.post('/points/order', data)
 }
 
 /**
- * 充值中心 - 积分充值订单状态轮询（后端接口待补充）
- * GET /points/order/{orderId}/status  → { status: 'WAIT' | 'SUCCESS', points }
+ * 充值中心 - 积分充值订单状态轮询（已对接后端）
+ * GET /points/order/{orderNo}/status  → { orderId, status: 'WAIT_PAY' | 'SUCCESS', points, qrCodeUrl }
  */
-export function getPointsOrderStatus(orderId) {
-  return request.get(`/points/order/${orderId}/status`)
+export function getPointsOrderStatus(orderNo) {
+  return request.get(`/points/order/${orderNo}/status`)
 }
 
 /**
