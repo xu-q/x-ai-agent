@@ -262,6 +262,25 @@
             <version>3.18.5</version>
         </dependency>
 
+        <!-- 支付宝 SDK（当面付/网站支付；含 fastjson） -->
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>4.38.0.ALL</version>
+        </dependency>
+
+        <!-- 二维码生成（后端把支付宝 qr 原串渲染成 PNG data URL，前端无需引二维码库） -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
     </dependencies>
     <build>
         <plugins>

@@ -31,7 +31,9 @@ public class WebConfig implements WebMvcConfigurer {
                         "/v3/api-docs/**",
                         "/swagger-resources/**",
                         "/webjars/**",
-                        "/doc.html"
+                        "/doc.html",
+                        // 支付渠道异步回调：支付宝等回调不带登录态，必须放行（由 PayNotifyController 内部验签）
+                        "/pay/notify/**"
                 );
     }
 }

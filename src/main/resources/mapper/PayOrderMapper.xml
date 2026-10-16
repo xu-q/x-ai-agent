@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.x.xaiagent.mapper.PayOrderMapper">
+
+    <!-- 按支付单号查询（自定义 SQL 需手动带 deleted=0，BaseMapper 的 @TableLogic 不会作用于自定义方法） -->
+    <select id="selectByOrderNo" resultType="com.x.xaiagent.entity.PayOrder">
+        SELECT *
+        FROM pay_order
+        WHERE order_no = #{orderNo}
+          AND deleted = 0
+    </select>
+
+</mapper>
