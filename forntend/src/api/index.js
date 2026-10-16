@@ -263,10 +263,18 @@ export function createPointsOrder(data) {
 
 /**
  * 充值中心 - 积分充值订单状态轮询（已对接后端）
- * GET /points/order/{orderNo}/status  → { orderId, status: 'WAIT_PAY' | 'SUCCESS', points, qrCodeUrl }
+ * GET /points/order/{orderNo}/status  → { orderId, status: 'WAIT_PAY' | 'PAID' | 'CANCELLED' | 'EXPIRED', points, qrCodeUrl }
  */
 export function getPointsOrderStatus(orderNo) {
   return request.get(`/points/order/${orderNo}/status`)
+}
+
+/**
+ * 充值中心 - 取消充值订单（仅待支付可取消，立即使支付宝二维码失效）
+ * POST /points/order/{orderNo}/cancel
+ */
+export function cancelPointsOrder(orderNo) {
+  return request.post(`/points/order/${orderNo}/cancel`)
 }
 
 /**

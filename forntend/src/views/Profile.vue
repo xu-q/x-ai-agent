@@ -714,6 +714,7 @@
         </div>
         <p class="pay-hint">请使用{{ selectedChannelInfo.name }}扫码完成支付</p>
         <p class="pay-status">{{ paid ? '支付成功，积分已到账' : '等待支付中...' }}</p>
+        <button v-if="!paid" class="pay-cancel" @click="cancelCurrentOrder">取消订单</button>
       </div>
     </div>
 
@@ -861,6 +862,7 @@ import {
   getPointsPackages,
   createPointsOrder,
   getPointsOrderStatus,
+  cancelPointsOrder,
   listMembershipPlans,
   updateMembershipPlan,
   listAdminNotices,
@@ -1250,7 +1252,8 @@ function startPolling() {
     try {
       const res = await getPointsOrderStatus(payOrderId.value)
       pollFails = 0
-      if (res.data?.status === 'SUCCESS') {
+      const status = res.data?.status
+      if (status === 'PAID') {
         paid.value = true
         const earned = res.data?.points ?? payOrder.value.points ?? 0
         showToast(`充值成功，积分 +${earned.toLocaleString()}`, 'success')
@@ -1258,6 +1261,11 @@ function startPolling() {
           closePay()
           loadPointsBalance()
         }, 1200)
+      } else if (status === 'CANCELLED' || status === 'EXPIRED') {
+        // 已取消 / 已超时：停止轮询并提示
+        stopPolling()
+        showToast(status === 'CANCELLED' ? '订单已取消' : '订单已超时，请重新下单', 'error')
+        setTimeout(closePay, 1200)
       }
     } catch {
       if (++pollFails >= 3) {
@@ -1279,6 +1287,23 @@ function stopPolling() {
 function closePay() {
   stopPolling()
   payVisible.value = false
+}
+
+// 取消当前充值订单（仅待支付可取消，立即使支付宝二维码失效）
+async function cancelCurrentOrder() {
+  if (!payOrderId.value) {
+    closePay()
+    return
+  }
+  try {
+    await cancelPointsOrder(payOrderId.value)
+    stopPolling()
+    showToast('订单已取消', 'success')
+  } catch (e) {
+    showToast(e.message || '取消失败', 'error')
+  } finally {
+    closePay()
+  }
 }
 
 // ===== 对话管理（原后台管理） =====

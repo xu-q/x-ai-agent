@@ -20,6 +20,6 @@ public class PayCreateVO {
     /** 支付金额（元，字符串便于前端直接展示） */
     private String amount;
 
-    /** 订单状态：WAIT_PAY / PAID / CLOSED */
+    /** 订单状态：WAIT_PAY / PAID / CANCELLED / EXPIRED */
     private String status;
 }

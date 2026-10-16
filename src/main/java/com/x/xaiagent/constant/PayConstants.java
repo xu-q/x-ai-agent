@@ -21,8 +21,10 @@ public final class PayConstants {
     // ===================== 订单状态 =====================
     /** 待支付 */
     public static final String STATUS_WAIT_PAY = "WAIT_PAY";
-    /** 已支付 */
+    /** 已支付（回调验签通过且积分已入账） */
     public static final String STATUS_PAID = "PAID";
-    /** 已关闭/已取消 */
-    public static final String STATUS_CLOSED = "CLOSED";
+    /** 已取消（用户主动取消 / 商户冲正关闭） */
+    public static final String STATUS_CANCELLED = "CANCELLED";
+    /** 已超时（超过有效时长未付，自动关单） */
+    public static final String STATUS_EXPIRED = "EXPIRED";
 }

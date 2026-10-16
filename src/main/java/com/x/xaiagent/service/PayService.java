@@ -18,4 +18,10 @@ public interface PayService {
 
     /** 查询充值订单状态（前端轮询） */
     RechargeStatusVO getRechargeStatus(String orderNo);
+
+    /** 取消充值订单（用户主动取消，仅 WAIT_PAY 可取消） */
+    void cancelRechargeOrder(String orderNo, String userId);
+
+    /** 超时关单：WAIT_PAY 置 EXPIRED（充值单与支付单同步），重复调用安全 */
+    void expireOrder(String orderNo);
 }

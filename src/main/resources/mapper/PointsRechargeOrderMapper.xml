@@ -12,4 +12,13 @@
           AND deleted = 0
     </select>
 
+    <!-- 查询已超时且仍待支付的充值单（定时任务关单用） -->
+    <select id="selectExpiredWaitPay" resultType="com.x.xaiagent.entity.PointsRechargeOrder">
+        SELECT *
+        FROM points_recharge_order
+        WHERE status = 'WAIT_PAY'
+          AND deleted = 0
+          AND create_time &lt; #{deadline}
+    </select>
+
 </mapper>

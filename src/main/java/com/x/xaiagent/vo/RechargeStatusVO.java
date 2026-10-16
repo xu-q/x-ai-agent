@@ -12,8 +12,8 @@ public class RechargeStatusVO {
     private String orderId;
 
     /**
-     * 状态：WAIT_PAY（待支付）/ SUCCESS（已支付，积分已到账）。
-     * 前端以 "SUCCESS" 判定支付完成。
+     * 状态：WAIT_PAY（待支付）/ PAID（已支付，积分已到账）/ CANCELLED（已取消）/ EXPIRED（已超时）。
+     * 前端以 "PAID" 判定支付完成。
      */
     private String status;
 

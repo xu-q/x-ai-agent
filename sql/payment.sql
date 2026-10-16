@@ -38,7 +38,7 @@ COMMENT ON COLUMN pay_order.biz_type IS '业务类型：POINTS_RECHARGE（积分
 COMMENT ON COLUMN pay_order.biz_no IS '关联业务单号，等于 points_recharge_order.order_no';
 COMMENT ON COLUMN pay_order.amount IS '支付金额（元）';
 COMMENT ON COLUMN pay_order.subject IS '订单标题（支付页展示用）';
-COMMENT ON COLUMN pay_order.status IS '支付状态：WAIT_PAY / PAID / CLOSED';
+COMMENT ON COLUMN pay_order.status IS '支付状态：WAIT_PAY / PAID / CANCELLED / EXPIRED（与充值单同步）';
 COMMENT ON COLUMN pay_order.channel_trade_no IS '渠道交易流水号（支付宝交易号等）';
 COMMENT ON COLUMN pay_order.qr_code IS '预下单返回的二维码原串，待支付时回传前端渲染';
 COMMENT ON COLUMN pay_order.notify_body IS '回调原始报文，用于对账';
@@ -70,7 +70,7 @@ COMMENT ON COLUMN points_recharge_order.user_id IS '充值用户 ID';
 COMMENT ON COLUMN points_recharge_order.package_key IS '档位 key；自定义充值时为 NULL';
 COMMENT ON COLUMN points_recharge_order.amount IS '充值金额（元）';
 COMMENT ON COLUMN points_recharge_order.points IS '入账积分（自定义充值 = amount*100，下单时锁定，不受后续改档位影响）';
-COMMENT ON COLUMN points_recharge_order.status IS '充值状态：WAIT_PAY / PAID / CLOSED（与 pay_order 同步）';
+COMMENT ON COLUMN points_recharge_order.status IS '充值状态：WAIT_PAY / PAID / CANCELLED / EXPIRED（与 pay_order 同步）';
 COMMENT ON COLUMN points_recharge_order.create_time IS '创建时间';
 COMMENT ON COLUMN points_recharge_order.update_time IS '更新时间';
 COMMENT ON COLUMN points_recharge_order.deleted IS '逻辑删除标记：0 未删 1 已删';

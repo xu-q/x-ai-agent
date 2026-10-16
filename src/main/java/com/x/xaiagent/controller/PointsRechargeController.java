@@ -54,4 +54,15 @@ public class PointsRechargeController {
     public R<RechargeStatusVO> orderStatus(@PathVariable String orderNo) {
         return R.ok(payService.getRechargeStatus(orderNo));
     }
+
+    /** 取消充值订单（仅待支付可取消，立即使支付宝二维码失效） */
+    @PostMapping("/order/{orderNo}/cancel")
+    public R<Void> cancelOrder(@PathVariable String orderNo) {
+        String userId = UserContext.getUserId();
+        if (userId == null) {
+            return R.fail(401, "未登录");
+        }
+        payService.cancelRechargeOrder(orderNo, userId);
+        return R.ok();
+    }
 }

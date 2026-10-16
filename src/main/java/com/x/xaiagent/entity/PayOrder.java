@@ -42,7 +42,7 @@ public class PayOrder {
     /** 订单标题（支付页展示用） */
     private String subject;
 
-    /** 支付状态：WAIT_PAY / PAID / CLOSED */
+    /** 支付状态：WAIT_PAY / PAID / CANCELLED / EXPIRED（与充值单同步） */
     private String status;
 
     /** 渠道交易流水号（支付宝交易号等） */

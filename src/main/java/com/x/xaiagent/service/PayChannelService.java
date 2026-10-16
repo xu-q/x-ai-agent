@@ -19,4 +19,7 @@ public interface PayChannelService {
 
     /** 解析异步回调：验签 + 提取订单号/交易号/支付状态 */
     PayNotifyResult handleNotify(HttpServletRequest request);
+
+    /** 主动关闭渠道订单（如用户取消时使二维码立即失效），失败抛异常由调用方决定是否忽略 */
+    void closeOrder(String outTradeNo);
 }

@@ -4,7 +4,9 @@ import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.internal.util.AlipaySignature;
+import com.alipay.api.request.AlipayTradeCloseRequest;
 import com.alipay.api.request.AlipayTradePrecreateRequest;
+import com.alipay.api.response.AlipayTradeCloseResponse;
 import com.alipay.api.response.AlipayTradePrecreateResponse;
 import com.alibaba.fastjson.JSONObject;
 import com.x.xaiagent.config.AlipayProperties;
@@ -62,6 +64,8 @@ public class AlipayChannelServiceImpl implements PayChannelService {
         biz.put("out_trade_no", order.getOrderNo());
         biz.put("total_amount", order.getAmount().toPlainString());
         biz.put("subject", order.getSubject());
+        // 超时表达式：超期后支付宝侧二维码自动失效（当面付超时关闭不推送通知，仅兜底防误付）
+        biz.put("timeout_express", props.getOrderTimeoutMinutes() + "m");
         request.setBizContent(biz.toJSONString());
 
         try {
@@ -106,5 +110,21 @@ public class AlipayChannelServiceImpl implements PayChannelService {
             result.setVerified(false);
         }
         return result;
+    }
+
+    @Override
+    public void closeOrder(String outTradeNo) {
+        AlipayTradeCloseRequest request = new AlipayTradeCloseRequest();
+        JSONObject biz = new JSONObject();
+        biz.put("out_trade_no", outTradeNo);
+        request.setBizContent(biz.toJSONString());
+        try {
+            AlipayTradeCloseResponse response = client.execute(request);
+            if (!response.isSuccess()) {
+                throw new BusinessException("支付宝关单失败：" + response.getSubMsg());
+            }
+        } catch (AlipayApiException e) {
+            throw new BusinessException("支付宝关单异常：" + e.getMessage());
+        }
     }
 }

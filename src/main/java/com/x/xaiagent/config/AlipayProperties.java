@@ -33,4 +33,7 @@ public class AlipayProperties {
     private String charset = "UTF-8";
 
     private String signType = "RSA2";
+
+    /** 订单超时时长（分钟）：超过未付则自动关单，并传给支付宝 timeout_express */
+    private int orderTimeoutMinutes = 15;
 }

@@ -1,5 +1,6 @@
 package com.x.xaiagent.service.impl;
 
+import com.x.xaiagent.config.AlipayProperties;
 import com.x.xaiagent.constant.PayConstants;
 import com.x.xaiagent.constant.PointsPackageConst;
 import com.x.xaiagent.constant.PointTransactionType;
@@ -52,6 +53,9 @@ public class PayServiceImpl implements PayService {
 
     @Resource
     private PointAccountMapper pointAccountMapper;
+
+    @Resource
+    private AlipayProperties alipayProperties;
 
     @Resource
     private List<PayChannelService> channelServices;
@@ -111,6 +115,7 @@ public class PayServiceImpl implements PayService {
         ro.setPoints(points);
         ro.setStatus(PayConstants.STATUS_WAIT_PAY);
         ro.setCreateTime(now);
+        ro.setDeleted(0);
         rechargeOrderMapper.insert(ro);
 
         PayOrder po = new PayOrder();
@@ -124,6 +129,7 @@ public class PayServiceImpl implements PayService {
         po.setSubject("积分充值 " + points + " 积分");
         po.setStatus(PayConstants.STATUS_WAIT_PAY);
         po.setCreateTime(now);
+        po.setDeleted(0);
         payOrderMapper.insert(po);
 
         // 4. 调渠道预下单，拿到二维码并回写
@@ -194,16 +200,82 @@ public class PayServiceImpl implements PayService {
     public RechargeStatusVO getRechargeStatus(String orderNo) {
         PointsRechargeOrder ro = rechargeOrderMapper.selectByOrderNo(orderNo);
         PayOrder po = payOrderMapper.selectByOrderNo(orderNo);
+        if (ro == null || po == null) {
+            return null;
+        }
+        // 惰性关单：用户在线轮询时若已超时，顺手置 EXPIRED，立刻反馈
+        if (PayConstants.STATUS_WAIT_PAY.equals(ro.getStatus())
+                && ro.getCreateTime() != null
+                && ro.getCreateTime().plusMinutes(alipayProperties.getOrderTimeoutMinutes())
+                    .isBefore(LocalDateTime.now())) {
+            expireOrder(orderNo);
+            ro.setStatus(PayConstants.STATUS_EXPIRED);
+        }
 
         RechargeStatusVO vo = new RechargeStatusVO();
         vo.setOrderId(orderNo);
-        vo.setStatus(ro != null && PayConstants.STATUS_PAID.equals(ro.getStatus())
-                ? "SUCCESS" : PayConstants.STATUS_WAIT_PAY);
-        vo.setPoints(ro != null ? ro.getPoints() : null);
-        if (po != null && po.getQrCode() != null) {
+        vo.setStatus(ro.getStatus());
+        vo.setPoints(ro.getPoints());
+        if (po.getQrCode() != null) {
             vo.setQrCodeUrl(QrCodeUtil.toDataUrl(po.getQrCode()));
         }
         return vo;
+    }
+
+    /**
+     * 取消充值订单：仅 WAIT_PAY 可取消，本地置 CANCELLED 并主动关闭支付宝订单使二维码失效。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelRechargeOrder(String orderNo, String userId) {
+        PointsRechargeOrder ro = rechargeOrderMapper.selectByOrderNo(orderNo);
+        PayOrder po = payOrderMapper.selectByOrderNo(orderNo);
+        if (ro == null || po == null) {
+            throw new BusinessException("订单不存在");
+        }
+        if (!userId.equals(ro.getUserId())) {
+            throw new BusinessException("无权操作该订单");
+        }
+        if (!PayConstants.STATUS_WAIT_PAY.equals(ro.getStatus())) {
+            throw new BusinessException("仅待支付订单可取消");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        ro.setStatus(PayConstants.STATUS_CANCELLED);
+        ro.setUpdateTime(now);
+        rechargeOrderMapper.updateById(ro);
+        po.setStatus(PayConstants.STATUS_CANCELLED);
+        po.setUpdateTime(now);
+        payOrderMapper.updateById(po);
+        // 主动关闭支付宝订单，使二维码立即失效（已关/未付等异常忽略）
+        PayChannelService svc = channelMap.get(po.getChannel());
+        if (svc != null) {
+            try {
+                svc.closeOrder(orderNo);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /**
+     * 超时关单：WAIT_PAY 置 EXPIRED（充值单与支付单同步）。
+     * 由定时任务或状态查询惰性触发；重复调用安全。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void expireOrder(String orderNo) {
+        PointsRechargeOrder ro = rechargeOrderMapper.selectByOrderNo(orderNo);
+        PayOrder po = payOrderMapper.selectByOrderNo(orderNo);
+        if (ro == null || po == null) {
+            return;
+        }
+        if (!PayConstants.STATUS_WAIT_PAY.equals(ro.getStatus())) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        ro.setStatus(PayConstants.STATUS_EXPIRED);
+        ro.setUpdateTime(now);
+        rechargeOrderMapper.updateById(ro);
+        po.setStatus(PayConstants.STATUS_EXPIRED);
+        po.setUpdateTime(now);
+        payOrderMapper.updateById(po);
     }
 
     private String genOrderNo() {

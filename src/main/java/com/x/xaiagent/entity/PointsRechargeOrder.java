@@ -35,7 +35,7 @@ public class PointsRechargeOrder {
     /** 入账积分（自定义充值 = amount*100，下单时锁定） */
     private Integer points;
 
-    /** 充值状态：WAIT_PAY / PAID / CLOSED（与 pay_order 同步） */
+    /** 充值状态：WAIT_PAY / PAID / CANCELLED / EXPIRED（与 pay_order 同步） */
     private String status;
 
     private LocalDateTime createTime;
