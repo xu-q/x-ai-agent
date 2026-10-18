@@ -233,7 +233,7 @@
 
           <div class="points-wallet">
             <div class="points-wallet-num">
-              <strong>{{ (pointsSummary.balance ?? 0).toLocaleString() }}</strong>
+              <strong>{{ pointsSummary.balance ?? 0 }}</strong>
               <span>当前积分余额</span>
             </div>
             <div class="points-wallet-rate">充值比例<br />1 元 = 100 积分</div>
@@ -248,7 +248,7 @@
               @click="selectPointsPackage(pkg.key)"
             >
               <span v-if="pkg.tag" class="point-tag">{{ pkg.tag }}</span>
-              <span class="point-amount"><em>{{ pkg.points.toLocaleString() }}</em>积分</span>
+              <span class="point-amount"><em>{{ pkg.points }}</em>积分</span>
               <span class="vip-price"><em>¥</em>{{ pkg.price }}</span>
               <span class="vip-desc">{{ pkg.desc }}</span>
             </div>
@@ -268,7 +268,7 @@
               />
             </div>
             <span class="custom-points">
-              可得 <strong>{{ customPointsEarned ? customPointsEarned.toLocaleString() : '--' }}</strong> 积分
+              可得 <strong>{{ customPointsEarned ? customPointsEarned : '--' }}</strong> 积分
             </span>
           </div>
 
@@ -292,7 +292,7 @@
           <button class="pay-btn" :disabled="payLoading || !selectedPointsInfo" @click="createOrder">
             <template v-if="payLoading">正在创建订单...</template>
             <template v-else>
-              立即充值 ¥{{ selectedPointsInfo?.price ?? 0 }}（得 {{ (selectedPointsInfo?.points ?? 0).toLocaleString() }} 积分）
+              立即充值 ¥{{ selectedPointsInfo?.price ?? 0 }}（得 {{ selectedPointsInfo?.points ?? 0 }} 积分）
             </template>
           </button>
         </template>
@@ -703,17 +703,18 @@
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
-        <h2 class="pay-title">扫码支付</h2>
+        <h2 class="pay-title">{{ selectedChannelInfo.name }}扫码支付</h2>
         <p class="pay-amount">
-          {{ selectedChannelInfo.name }} · {{ payOrder?.name }}
+          <span class="pay-points">{{ payOrder?.name }}</span>
           <strong>¥{{ payOrder?.price }}</strong>
         </p>
         <div class="pay-qr">
           <img v-if="payQr" :src="payQr" alt="支付二维码" />
           <span v-else class="pay-qr-placeholder">二维码生成中...</span>
         </div>
-        <p class="pay-hint">请使用{{ selectedChannelInfo.name }}扫码完成支付</p>
-        <p class="pay-status">{{ paid ? '支付成功，积分已到账' : '等待支付中...' }}</p>
+        <p class="pay-status" :class="paid ? 'is-paid' : 'is-waiting'">
+          {{ paid ? '支付成功，积分已到账' : '等待支付中...' }}
+        </p>
         <button v-if="!paid" class="pay-cancel" @click="cancelCurrentOrder">取消订单</button>
       </div>
     </div>
@@ -1222,7 +1223,7 @@ async function createOrder() {
   payLoading.value = true
   try {
     const info = selectedPointsInfo.value
-    payOrder.value = { name: `${info.points.toLocaleString()} 积分`, price: info.price, points: info.points }
+    payOrder.value = { name: `${info.points} 积分`, price: info.price, points: info.points }
     const res = await createPointsOrder({
       packageKey: info.key,
       amount: info.price,
@@ -1256,7 +1257,7 @@ function startPolling() {
       if (status === 'PAID') {
         paid.value = true
         const earned = res.data?.points ?? payOrder.value.points ?? 0
-        showToast(`充值成功，积分 +${earned.toLocaleString()}`, 'success')
+        showToast(`充值成功，积分 +${earned}`, 'success')
         setTimeout(() => {
           closePay()
           loadPointsBalance()
@@ -3942,8 +3943,8 @@ onBeforeUnmount(stopPolling)
 }
 
 .pay-close:hover {
-  background: #f2f3f5;
-  color: #1f2329;
+  background: #f53f3f;
+  color: #fff;
 }
 
 .pay-title {
@@ -3954,15 +3955,27 @@ onBeforeUnmount(stopPolling)
 }
 
 .pay-amount {
-  font-size: 13px;
-  color: #86909c;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
   margin-bottom: 16px;
+  border: 1px solid #ffd9b3;
+  border-radius: 999px;
+  background: #fff7ef;
+  color: #4e5969;
+}
+
+.pay-amount .pay-points {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2329;
 }
 
 .pay-amount strong {
   color: #ff7d00;
-  font-size: 15px;
-  margin-left: 4px;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .pay-qr {
@@ -3989,15 +4002,74 @@ onBeforeUnmount(stopPolling)
   color: #86909c;
 }
 
-.pay-hint {
-  font-size: 13px;
-  color: #4e5969;
-  margin-bottom: 6px;
-}
-
 .pay-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font-size: 12px;
   color: #86909c;
+}
+
+/* 等待支付：转圈 spinner + 呼吸闪烁 */
+.pay-status.is-waiting::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid #ffe1c4;
+  border-top-color: #ff7d00;
+  border-radius: 50%;
+  animation: pay-spin 0.8s linear infinite;
+}
+
+.pay-status.is-waiting {
+  animation: pay-breathe 1.6s ease-in-out infinite;
+}
+
+/* 支付成功：绿色 */
+.pay-status.is-paid {
+  color: #00b42a;
+}
+
+@keyframes pay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pay-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.pay-cancel {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 9px 0;
+  border: 1.5px solid #e5e6eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.1s;
+}
+
+.pay-cancel:hover {
+  background: #f53f3f;
+  border-color: #f53f3f;
+  color: #fff;
+}
+
+.pay-cancel:active {
+  transform: scale(0.98);
 }
 
 /* ===== 会员管理（金色主题） ===== */
