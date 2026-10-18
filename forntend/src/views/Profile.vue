@@ -535,19 +535,28 @@
             </div>
           </header>
 
-          <!-- 指标卡 -->
-          <div class="stat-cards">
-            <div v-for="(c, i) in statCards" :key="c.label" class="stat-card">
-              <span class="stat-label">{{ c.label }}</span>
-              <strong class="stat-value">{{ fmtStat(displayStats[i]) }}</strong>
+          <!-- 指标卡：按模块分组（基础数据 / 充值收入） -->
+          <div class="stat-groups">
+            <div v-for="(g, gi) in statGroups" :key="g.title" class="stat-group">
+              <div class="group-title">{{ g.title }}</div>
+              <div class="stat-cards">
+                <div v-for="(c, ci) in g.items" :key="c.label" class="stat-card">
+                  <span class="stat-label">{{ c.label }}</span>
+                  <strong class="stat-value">{{ (c.prefix || '') + fmtStat(displayStats[gi * g.items.length + ci]) }}</strong>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- 趋势图 -->
+          <!-- 趋势图：趋势分析模块 -->
+          <div class="group-title">趋势分析</div>
           <div class="chart-grid">
             <div class="chart-card wide">
-              <div class="chart-title">用户增长趋势</div>
               <SvgChart v-show="!trendLoading" :labels="trend.dates" :series="userSeries" :height="240" />
+              <div v-if="trendLoading" class="chart-loading"><span class="loading-spinner"></span>数据加载中…</div>
+            </div>
+            <div class="chart-card wide">
+              <SvgChart v-show="!trendLoading" :labels="rechargeTrend.dates" :series="rechargeSeries" :height="240" />
               <div v-if="trendLoading" class="chart-loading"><span class="loading-spinner"></span>数据加载中…</div>
             </div>
           </div>
@@ -856,6 +865,8 @@ import {
   getStatsSignToday,
   getStatsUsersTotal,
   getStatsUsersTrend,
+  getRechargeSummary,
+  getRechargeTrend,
   getNotices,
   markNoticeRead,
   markAllNoticesRead,
@@ -1526,20 +1537,32 @@ async function batchDelete() {
 // ===== 统计管理 =====
 const statsSignToday = ref(0)
 const statsTotalUsers = ref(0)
+const statsRechargeToday = ref(0)
+const statsRechargeTotal = ref(0)
 const trend = ref({ dates: [], newUsers: [], userTotals: [] })
+const rechargeTrend = ref({ dates: [], amounts: [] })
 const trendDays = ref(20)
 const statsHint = ref('')
 
 const statCards = computed(() => [
   { label: '今日签到人数', value: statsSignToday.value },
-  { label: '用户总数量', value: statsTotalUsers.value }
+  { label: '用户总数量', value: statsTotalUsers.value },
+  { label: '今日充值收入', value: statsRechargeToday.value, prefix: '¥' },
+  { label: '累计充值收入', value: statsRechargeTotal.value, prefix: '¥' }
 ])
-const fmtStat = (v) => (typeof v === 'number' ? v.toLocaleString() : '—')
 
-// 指标数字 count-up：数据到达后从当前值缓动滚动到目标值
-const displayStats = ref([0, 0])
-watch(statCards, (cards) => {
-  const targets = cards.map((c) => (typeof c.value === 'number' ? c.value : 0))
+// 指标卡按模块分组展示：竖条标题 + 组内卡片
+const statGroups = computed(() => [
+  { title: '基础数据', items: [statCards.value[0], statCards.value[1]] },
+  { title: '充值收入', items: [statCards.value[2], statCards.value[3]] }
+])
+const fmtStat = (v) => (typeof v === 'number' ? String(v) : '—')
+
+// 指标数字 count-up：进入页面/数据到达后从当前值缓动滚动到目标值（函数驱动，保证每次进入必触发）
+const displayStats = ref([0, 0, 0, 0])
+let countRaf = 0
+function runCountUp(targets) {
+  cancelAnimationFrame(countRaf)
   const from = displayStats.value.slice()
   const start = performance.now()
   const dur = 650
@@ -1547,27 +1570,34 @@ watch(statCards, (cards) => {
     const p = Math.min(1, (now - start) / dur)
     const e = 1 - Math.pow(1 - p, 3)
     displayStats.value = targets.map((t, i) => Math.round((from[i] || 0) + (t - (from[i] || 0)) * e))
-    if (p < 1) requestAnimationFrame(tick)
+    if (p < 1) countRaf = requestAnimationFrame(tick)
   }
-  requestAnimationFrame(tick)
-})
+  countRaf = requestAnimationFrame(tick)
+}
 
-// 图表系列配置（页面青色主题）
+// 图表系列配置（页面青色主题；收入图橙色柱状）
 const userSeries = computed(() => [
   { name: '用户总量', color: '#3491fa', data: trend.value.userTotals, type: 'area' },
   { name: '今日新增', color: '#ff9a2e', data: trend.value.newUsers, type: 'line' }
 ])
 
+const rechargeSeries = computed(() => [
+  { name: '充值收入', color: '#ff7d00', data: rechargeTrend.value.amounts, type: 'bar' }
+])
+
 const trendLoading = ref(false)
 let trendSeq = 0
+let rechargeSeq = 0
 
 // 指标卡：今日签到数 + 用户总数（两个独立接口并行拉取）
 async function loadStatsOverview() {
+  displayStats.value = [0, 0, 0, 0]
   try {
     const [signRes, totalRes] = await Promise.all([getStatsSignToday(), getStatsUsersTotal()])
     statsSignToday.value = Number(signRes.data) || 0
     statsTotalUsers.value = Number(totalRes.data) || 0
     statsHint.value = ''
+    runCountUp([statsSignToday.value, statsTotalUsers.value, statsRechargeToday.value, statsRechargeTotal.value])
   } catch (e) {
     if (e.response?.status === 401) {
       router.push('/')
@@ -1575,6 +1605,14 @@ async function loadStatsOverview() {
     }
     statsHint.value = e.message || '统计加载失败'
   }
+  // 充值收入汇总：后端接口待实现，失败静默显示 0
+  getRechargeSummary()
+    .then((res) => {
+      statsRechargeToday.value = Number(res.data?.todayAmount) || 0
+      statsRechargeTotal.value = Number(res.data?.totalAmount) || 0
+      runCountUp([statsSignToday.value, statsTotalUsers.value, statsRechargeToday.value, statsRechargeTotal.value])
+    })
+    .catch(() => {})
 }
 
 // 用户增长趋势：[{date, total, newCount}] → 图表数据；seq 防快速切换时旧响应覆盖新数据
@@ -1611,6 +1649,23 @@ function setRange(days) {
   if (days === trendDays.value || trendLoading.value) return
   trendDays.value = days
   loadTrend()
+  loadRechargeTrend()
+}
+
+// 充值收入趋势：[{date, amount}] → 橙色柱状图；后端接口待实现，失败静默空图
+async function loadRechargeTrend() {
+  const seq = ++rechargeSeq
+  try {
+    const res = await getRechargeTrend(trendDays.value)
+    if (seq !== rechargeSeq) return
+    const list = Array.isArray(res.data) ? res.data : []
+    rechargeTrend.value = {
+      dates: list.map((it) => fmtDay(it.date)),
+      amounts: list.map((it) => Number(it.amount) || 0)
+    }
+  } catch {
+    if (seq === rechargeSeq) rechargeTrend.value = { dates: [], amounts: [] }
+  }
 }
 
 // ===== 系统通知 =====
@@ -1704,6 +1759,7 @@ watch(
     } else if (tab === 'stats') {
       loadStatsOverview()
       loadTrend()
+      loadRechargeTrend()
     } else if (tab === 'plans') {
       loadAdminPlans()
     } else if (tab === 'pointsAdmin') {
@@ -2525,7 +2581,6 @@ onBeforeUnmount(stopPolling)
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
-  margin-bottom: 20px;
 }
 
 .stat-card {
@@ -2535,30 +2590,43 @@ onBeforeUnmount(stopPolling)
   flex-direction: column;
   gap: 6px;
   padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--tab-color, #0fc6c2) 32%, #fff);
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s;
 }
 
-/* 顶部主题色渐变 hairline：统一青色，聚焦页面主题 */
-.stat-card::before {
+/* 模块分组：主题色竖条标题标识模块归属 */
+.stat-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.group-title {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tab-color, #0fc6c2) 75%, #12343d);
+  background: color-mix(in srgb, var(--tab-color, #0fc6c2) 16%, #fff);
+}
+
+.group-title::before {
   content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--tab-color, #0fc6c2), transparent 82%);
-  opacity: 0.65;
-  pointer-events: none;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--tab-color, #0fc6c2);
+  margin-right: 8px;
 }
 
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 22px rgba(31, 35, 41, 0.1);
-}
-
+/* 卡片：数字主题色渐变，视觉聚焦数据本身 */
 .stat-label {
   font-size: 13px;
   color: #86909c;
@@ -2568,7 +2636,11 @@ onBeforeUnmount(stopPolling)
   font-family: var(--font-num);
   font-size: 26px;
   font-weight: 700;
-  color: #1f2329;
+  color: var(--tab-color, #0fc6c2);
+  background: linear-gradient(135deg, var(--tab-color, #0fc6c2), color-mix(in srgb, var(--tab-color, #0fc6c2) 68%, #123f3d));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2582,27 +2654,11 @@ onBeforeUnmount(stopPolling)
   position: relative;
   overflow: hidden;
   padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--tab-color, #0fc6c2) 32%, #fff);
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(31, 35, 41, 0.06);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s;
-}
-
-.chart-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--tab-color, #0fc6c2), transparent 82%);
-  opacity: 0.65;
-  pointer-events: none;
-}
-
-.chart-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 22px rgba(31, 35, 41, 0.1);
 }
 
 .chart-card.wide {

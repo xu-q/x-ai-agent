@@ -214,6 +214,22 @@ export function getStatsUsersTrend(days) {
 }
 
 /**
+ * 统计管理 - 充值收入汇总（后端接口待补充）
+ * GET /stats/recharge/summary  → { todayAmount: 今日充值收入(元), totalAmount: 累计充值收入(元) }
+ */
+export function getRechargeSummary() {
+  return request.get('/stats/recharge/summary')
+}
+
+/**
+ * 统计管理 - 充值收入趋势（后端接口待补充）
+ * GET /stats/recharge/trend?days=7|20  → [{ date: '2026-10-18', amount: 当日充值金额(元) }]
+ */
+export function getRechargeTrend(days) {
+  return request.get('/stats/recharge/trend', { params: { days } })
+}
+
+/**
  * 系统通知 - 查询通知列表（后端接口待补充）
  * GET /user/notices  → { list: [{ id, type: 'SYSTEM'|'ACTIVITY'|'UPDATE', title, content, createTime, read }] }
  */
