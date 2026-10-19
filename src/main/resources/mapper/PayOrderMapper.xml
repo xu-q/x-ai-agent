@@ -12,4 +12,32 @@
           AND deleted = 0
     </select>
 
+    <!-- 累计收入：指定状态订单金额之和（无记录时返回 0） -->
+    <select id="sumPaidAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM pay_order
+        WHERE status = #{status}
+          AND deleted = 0
+    </select>
+
+    <!-- 今日/某时间之后收入 -->
+    <select id="sumPaidAmountAfter" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM pay_order
+        WHERE status = #{status}
+          AND paid_time &gt;= #{paidAfter}
+          AND deleted = 0
+    </select>
+
+    <!-- 按天统计收入（PostgreSQL：to_char 取日期，按日期分组） -->
+    <select id="sumPaidAmountByDay" resultType="com.x.xaiagent.vo.DayIncomeVO">
+        SELECT to_char(paid_time, 'YYYY-MM-DD') AS date, COALESCE(SUM(amount), 0) AS amount
+        FROM pay_order
+        WHERE status = #{status}
+          AND paid_time &gt;= #{start}
+          AND deleted = 0
+        GROUP BY to_char(paid_time, 'YYYY-MM-DD')
+        ORDER BY date
+    </select>
+
 </mapper>

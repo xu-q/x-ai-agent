@@ -531,7 +531,7 @@
             <span class="panel-tag">Statistics</span>
             <div class="range-switch">
               <button :class="{ on: trendDays === 7 }" :disabled="trendLoading" @click="setRange(7)">近 7 天</button>
-              <button :class="{ on: trendDays === 20 }" :disabled="trendLoading" @click="setRange(20)">近 20 天</button>
+              <button :class="{ on: trendDays === 30 }" :disabled="trendLoading" @click="setRange(30)">近 30 天</button>
             </div>
           </header>
 
@@ -865,8 +865,7 @@ import {
   getStatsSignToday,
   getStatsUsersTotal,
   getStatsUsersTrend,
-  getRechargeSummary,
-  getRechargeTrend,
+  getIncomeSummary,
   getNotices,
   markNoticeRead,
   markAllNoticesRead,
@@ -1541,7 +1540,7 @@ const statsRechargeToday = ref(0)
 const statsRechargeTotal = ref(0)
 const trend = ref({ dates: [], newUsers: [], userTotals: [] })
 const rechargeTrend = ref({ dates: [], amounts: [] })
-const trendDays = ref(20)
+const trendDays = ref(30)
 const statsHint = ref('')
 
 const statCards = computed(() => [
@@ -1575,14 +1574,13 @@ function runCountUp(targets) {
   countRaf = requestAnimationFrame(tick)
 }
 
-// 图表系列配置（页面青色主题；收入图橙色柱状）
+// 图表系列配置（页面青色主题；收入图橙色渐变面积曲线）
 const userSeries = computed(() => [
   { name: '用户总量', color: '#3491fa', data: trend.value.userTotals, type: 'area' },
   { name: '今日新增', color: '#ff9a2e', data: trend.value.newUsers, type: 'line' }
 ])
-
 const rechargeSeries = computed(() => [
-  { name: '充值收入', color: '#ff7d00', data: rechargeTrend.value.amounts, type: 'bar' }
+  { name: '充值收入', color: '#ff7d00', data: rechargeTrend.value.amounts, type: 'area' }
 ])
 
 const trendLoading = ref(false)
@@ -1605,14 +1603,26 @@ async function loadStatsOverview() {
     }
     statsHint.value = e.message || '统计加载失败'
   }
-  // 充值收入汇总：后端接口待实现，失败静默显示 0
-  getRechargeSummary()
+  // 收入总览（今日 / 累计 / 趋势），统一从 income/summary 取
+  getIncomeSummary(trendDays.value)
     .then((res) => {
-      statsRechargeToday.value = Number(res.data?.todayAmount) || 0
-      statsRechargeTotal.value = Number(res.data?.totalAmount) || 0
+      const d = res.data || {}
+      statsRechargeToday.value = Number(d.today) || 0
+      statsRechargeTotal.value = Number(d.total) || 0
+      const list = Array.isArray(d.trend) ? d.trend : []
+      rechargeTrend.value = {
+        dates: list.map((it) => fmtDay(it.date)),
+        amounts: list.map((it) => Number(it.amount) || 0)
+      }
       runCountUp([statsSignToday.value, statsTotalUsers.value, statsRechargeToday.value, statsRechargeTotal.value])
     })
-    .catch(() => {})
+    .catch((e) => {
+      if (e?.response?.status === 401) {
+        router.push('/')
+        return
+      }
+      statsHint.value = e.message || '收入统计加载失败'
+    })
 }
 
 // 用户增长趋势：[{date, total, newCount}] → 图表数据；seq 防快速切换时旧响应覆盖新数据
@@ -1652,13 +1662,13 @@ function setRange(days) {
   loadRechargeTrend()
 }
 
-// 充值收入趋势：[{date, amount}] → 橙色柱状图；后端接口待实现，失败静默空图
+// 充值收入趋势：[{date, amount}] → 橙色柱状图（取自 income/summary 的 trend 字段）
 async function loadRechargeTrend() {
   const seq = ++rechargeSeq
   try {
-    const res = await getRechargeTrend(trendDays.value)
+    const res = await getIncomeSummary(trendDays.value)
     if (seq !== rechargeSeq) return
-    const list = Array.isArray(res.data) ? res.data : []
+    const list = Array.isArray(res.data?.trend) ? res.data.trend : []
     rechargeTrend.value = {
       dates: list.map((it) => fmtDay(it.date)),
       amounts: list.map((it) => Number(it.amount) || 0)

@@ -4,6 +4,7 @@ import com.x.xaiagent.comment.R;
 import com.x.xaiagent.constant.RoleConstants;
 import com.x.xaiagent.interceptor.RequireRole;
 import com.x.xaiagent.service.StatsService;
+import com.x.xaiagent.vo.IncomeOverviewVO;
 import com.x.xaiagent.vo.UserTrendVO;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 统计（仅管理员）：用户总数、今日签到数、用户增长趋势。
+ * 统计（仅管理员）：用户总数、今日签到数、用户增长趋势、收入统计。
  */
 @RestController
 @RequestMapping("/stats")
@@ -42,5 +43,12 @@ public class StatsController {
     @RequireRole(RoleConstants.ADMIN)
     public R<List<UserTrendVO>> userTrend(@RequestParam(defaultValue = "7") int days) {
         return R.ok(statsService.userTrend(days));
+    }
+
+    /** 收入总览：今日收入 + 累计收入 + 近 days(7/30) 天趋势（一次请求） */
+    @GetMapping("/income/summary")
+    @RequireRole(RoleConstants.ADMIN)
+    public R<IncomeOverviewVO> incomeSummary(@RequestParam(defaultValue = "7") int days) {
+        return R.ok(statsService.incomeOverview(days));
     }
 }

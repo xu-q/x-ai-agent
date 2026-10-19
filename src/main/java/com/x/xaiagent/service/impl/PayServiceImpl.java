@@ -76,7 +76,8 @@ public class PayServiceImpl implements PayService {
         BigDecimal amount;
         int points;
         String packageKey = null;
-        if (dto.getPackageKey() != null && !dto.getPackageKey().isBlank()) {
+        BigDecimal amt = dto.getAmount();
+        if (dto.getPackageKey() != null && !dto.getPackageKey().isBlank() && amt == null) {
             PointsPackageConst.Def def = PointsPackageConst.get(dto.getPackageKey());
             if (def == null) {
                 throw new BusinessException("档位不存在");
@@ -85,7 +86,6 @@ public class PayServiceImpl implements PayService {
             points = def.totalPoints();
             packageKey = def.key();
         } else {
-            BigDecimal amt = dto.getAmount();
             if (amt == null || amt.compareTo(BigDecimal.ONE) < 0 || amt.compareTo(new BigDecimal("1000")) > 0) {
                 throw new BusinessException("自定义充值金额需在 1~1000 元之间");
             }
@@ -207,7 +207,7 @@ public class PayServiceImpl implements PayService {
         if (PayConstants.STATUS_WAIT_PAY.equals(ro.getStatus())
                 && ro.getCreateTime() != null
                 && ro.getCreateTime().plusMinutes(alipayProperties.getOrderTimeoutMinutes())
-                    .isBefore(LocalDateTime.now())) {
+                .isBefore(LocalDateTime.now())) {
             expireOrder(orderNo);
             ro.setStatus(PayConstants.STATUS_EXPIRED);
         }

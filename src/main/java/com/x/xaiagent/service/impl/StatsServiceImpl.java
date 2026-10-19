@@ -1,14 +1,19 @@
 package com.x.xaiagent.service.impl;
 
+import com.x.xaiagent.constant.PayConstants;
 import com.x.xaiagent.globalExceptionHandler.BusinessException;
+import com.x.xaiagent.mapper.PayOrderMapper;
 import com.x.xaiagent.mapper.UserMapper;
 import com.x.xaiagent.mapper.UserSignMonthMapper;
 import com.x.xaiagent.service.StatsService;
 import com.x.xaiagent.vo.DayCountVO;
+import com.x.xaiagent.vo.DayIncomeVO;
+import com.x.xaiagent.vo.IncomeOverviewVO;
 import com.x.xaiagent.vo.UserTrendVO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -25,6 +30,9 @@ public class StatsServiceImpl implements StatsService {
 
     @Resource
     private UserSignMonthMapper userSignMonthMapper;
+
+    @Resource
+    private PayOrderMapper payOrderMapper;
 
     @Override
     public Long totalUsers() {
@@ -52,8 +60,8 @@ public class StatsServiceImpl implements StatsService {
 
     @Override
     public List<UserTrendVO> userTrend(int days) {
-        if (days != 7 && days != 20) {
-            throw new BusinessException("仅展示7天或近20天数据");
+        if (days != 7 && days != 30) {
+            throw new BusinessException("仅展示7天或30天数据");
         }
         LocalDate today = LocalDate.now();
         LocalDate start = today.minusDays(days - 1L);
@@ -82,6 +90,57 @@ public class StatsServiceImpl implements StatsService {
             vo.setTotal(cumulative);
             vo.setNewCount(newCount);
             result.add(vo);
+        }
+        return result;
+    }
+
+    @Override
+    public BigDecimal todayIncome() {
+        LocalDate today = LocalDate.now();
+        BigDecimal sum = payOrderMapper.sumPaidAmountAfter(
+                PayConstants.STATUS_PAID, today.atStartOfDay());
+        return sum == null ? BigDecimal.ZERO : sum;
+    }
+
+    @Override
+    public BigDecimal totalIncome() {
+        BigDecimal sum = payOrderMapper.sumPaidAmount(PayConstants.STATUS_PAID);
+        return sum == null ? BigDecimal.ZERO : sum;
+    }
+
+    @Override
+    public IncomeOverviewVO incomeOverview(int days) {
+        IncomeOverviewVO vo = new IncomeOverviewVO();
+        vo.setToday(todayIncome());
+        vo.setTotal(totalIncome());
+        vo.setTrend(incomeTrend(days));
+        return vo;
+    }
+
+    /**
+     * 近 days（仅 7 / 30）天每日收入金额。空档日期补 0，按日期升序返回。
+     */
+    private List<DayIncomeVO> incomeTrend(int days) {
+        if (days != 7 && days != 30) {
+            throw new BusinessException("仅展示7天或30天数据");
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(days - 1L);
+        LocalDateTime startTime = start.atStartOfDay();
+
+        Map<String, BigDecimal> byDay = payOrderMapper.sumPaidAmountByDay(
+                        PayConstants.STATUS_PAID, startTime)
+                .stream()
+                .collect(Collectors.toMap(DayIncomeVO::getDate, DayIncomeVO::getAmount));
+
+        // 逐日生成数据点，空档日期补 0
+        List<DayIncomeVO> result = new ArrayList<>(days);
+        for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) {
+            String key = d.toString();
+            DayIncomeVO dayVo = new DayIncomeVO();
+            dayVo.setDate(key);
+            dayVo.setAmount(byDay.getOrDefault(key, BigDecimal.ZERO));
+            result.add(dayVo);
         }
         return result;
     }
