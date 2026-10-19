@@ -5,12 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.x.xaiagent.constant.RoleConstants;
 import com.x.xaiagent.context.UserContext;
+import com.x.xaiagent.dto.AdminResetPasswordDTO;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.entity.User;
 import com.x.xaiagent.globalExceptionHandler.BusinessException;
 import com.x.xaiagent.mapper.UserMapper;
 import com.x.xaiagent.service.UserService;
 import com.x.xaiagent.vo.PageVO;
+import com.x.xaiagent.vo.ResetPasswordVO;
 import com.x.xaiagent.vo.UserVO;
 import org.mindrot.jbcrypt.BCrypt;
 import jakarta.annotation.Resource;
@@ -24,6 +26,9 @@ import java.util.UUID;
 
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    /** 管理员重置密码时，未指定新密码则使用的默认密码 */
+    private static final String DEFAULT_RESET_PASSWORD = "123456";
 
     private User getByUsername(String username) {
         return getOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
@@ -135,11 +140,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public PageVO<UserVO> listUsers(int page, int size) {
+    public PageVO<UserVO> listUsers(int page, int size, String username, String phone, String role, String status) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), 100);
+
         Page<User> pageQuery = new Page<>(safePage, safeSize);
-        page(pageQuery, new LambdaQueryWrapper<User>().orderByDesc(User::getCreateTime));
+        baseMapper.selectUserPage(pageQuery, username, phone, role, status);
 
         PageVO<UserVO> vo = new PageVO<>();
         vo.setList(pageQuery.getRecords().stream().map(UserVO::from).toList());
@@ -194,5 +200,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         u.setUpdateTime(LocalDateTime.now());
         updateById(u);
         return UserVO.from(u);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ResetPasswordVO resetPassword(String id, AdminResetPasswordDTO dto) {
+        User u = getById(id);
+        if (u == null) {
+            throw new BusinessException("用户不存在");
+        }
+        String newPassword = StringUtils.hasText(dto.getNewPassword())
+                ? dto.getNewPassword()
+                : DEFAULT_RESET_PASSWORD;
+        if (newPassword.length() < 6) {
+            throw new BusinessException("密码长度至少 6 位");
+        }
+        u.setPassword(BCrypt.hashpw(newPassword, BCrypt.gensalt()));
+        u.setUpdateTime(LocalDateTime.now());
+        updateById(u);
+
+        ResetPasswordVO vo = new ResetPasswordVO();
+        vo.setId(u.getId());
+        vo.setUsername(u.getUsername());
+        vo.setNewPassword(newPassword);
+        return vo;
     }
 }

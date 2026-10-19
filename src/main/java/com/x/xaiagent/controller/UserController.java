@@ -2,11 +2,13 @@ package com.x.xaiagent.controller;
 
 import com.x.xaiagent.comment.R;
 import com.x.xaiagent.constant.RoleConstants;
+import com.x.xaiagent.dto.AdminResetPasswordDTO;
 import com.x.xaiagent.dto.UserLoginDTO;
 import com.x.xaiagent.dto.UserRegisterDTO;
 import com.x.xaiagent.interceptor.RequireRole;
 import com.x.xaiagent.service.UserService;
 import com.x.xaiagent.vo.PageVO;
+import com.x.xaiagent.vo.ResetPasswordVO;
 import com.x.xaiagent.vo.UserVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,12 +59,19 @@ public class UserController {
         return R.ok("已退出登录");
     }
 
-    /** 用户分页列表（仅管理员） */
+    /**
+     * 用户分页列表（仅管理员）。
+     * 可选筛选：username/phone 模糊匹配，role/status 精确匹配；结果按创建时间倒序。
+     */
     @GetMapping("/list")
     @RequireRole(RoleConstants.ADMIN)
     public R<PageVO<UserVO>> listUsers(@RequestParam(defaultValue = "1") int page,
-                                       @RequestParam(defaultValue = "20") int size) {
-        return R.ok(userService.listUsers(page, size));
+                                       @RequestParam(defaultValue = "20") int size,
+                                       @RequestParam(required = false) String username,
+                                       @RequestParam(required = false) String phone,
+                                       @RequestParam(required = false) String role,
+                                       @RequestParam(required = false) String status) {
+        return R.ok(userService.listUsers(page, size, username, phone, role, status));
     }
 
     /** 查询单个用户（仅管理员） */
@@ -91,6 +100,14 @@ public class UserController {
     @RequireRole(RoleConstants.ADMIN)
     public R<Boolean> removeUser(@PathVariable String id) {
         return R.ok(userService.removeUser(id));
+    }
+
+    /** 管理员重置用户密码（仅管理员）：newPassword 为空则重置为默认密码 */
+    @PostMapping("/{id}/reset-password")
+    @RequireRole(RoleConstants.ADMIN)
+    public R<ResetPasswordVO> resetPassword(@PathVariable String id,
+                                            @RequestBody AdminResetPasswordDTO dto) {
+        return R.ok(userService.resetPassword(id, dto));
     }
 
     /** 获取当前登录用户信息（拦截器已填充 UserContext） */

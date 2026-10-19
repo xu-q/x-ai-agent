@@ -126,9 +126,10 @@ export function listMessages(conversationId) {
 
 /**
  * 后台管理 - 用户列表（需管理员身份）
+ * 可选筛选：username/phone 模糊匹配，role/status 精确匹配；结果按创建时间倒序
  */
-export function listUsers({ page = 1, size = 1000 } = {}) {
-  return request.get('/user/list', { params: { page, size } })
+export function listUsers({ page = 1, size = 20, username = '', phone = '', role = '', status = '' } = {}) {
+  return request.get('/user/list', { params: { page, size, username, phone, role, status } })
 }
 
 /**
@@ -143,6 +144,15 @@ export function updateUser(id, data) {
  */
 export function removeUser(id) {
   return request.delete(`/user/${id}`)
+}
+
+/**
+ * 管理员重置用户密码（已对接后端 UserController）
+ * POST /user/{id}/reset-password  body: { newPassword?: string }
+ * → { id, username, newPassword(实际生效明文) }
+ */
+export function resetUserPassword(id, newPassword) {
+  return request.post(`/user/${id}/reset-password`, { newPassword: newPassword || '' })
 }
 
 /**

@@ -433,14 +433,17 @@
               </tr>
             </tbody>
           </table>
-          <Pagination
-            v-if="filteredConversations.length > CONV_PAGE_SIZE"
-            :page="convPage"
-            :total="filteredConversations.length"
-            :page-size="CONV_PAGE_SIZE"
-            style="--pager-color: #165dff"
-            @change="convPage = $event"
-          />
+          <div class="pager-bar">
+            <Pagination
+              v-if="filteredConversations.length > CONV_PAGE_SIZE"
+              :page="convPage"
+              :total="filteredConversations.length"
+              :page-size="CONV_PAGE_SIZE"
+              style="--pager-color: #165dff"
+              @change="convPage = $event"
+            />
+            <span class="pager-total">共 {{ filteredConversations.length }} 条</span>
+          </div>
         </template>
 
         <!-- 用户管理（仅管理员） -->
@@ -454,15 +457,25 @@
               v-model.trim="userSearch"
               class="search-input search-green"
               type="text"
-              placeholder="按用户名 / ID / 手机号搜索"
+              placeholder="按用户名搜索"
+              @keyup.enter="applyUserFilter"
+            />
+            <input
+              v-model.trim="phoneSearch"
+              class="search-input search-green"
+              type="text"
+              placeholder="按手机号搜索"
+              @keyup.enter="applyUserFilter"
             />
             <ThemeSelect v-model="roleFilter" :options="roleOptions" title="按角色筛选" class="filter-gap" />
-            <button class="refresh-btn" @click="loadUsers">刷新</button>
-            <div v-if="selectedIds.length" class="batch-bar">
+            <ThemeSelect v-model="statusFilter" :options="statusOptions" title="按状态筛选" class="filter-gap" />
+            <button class="refresh-btn" @click="applyUserFilter">搜索</button>
+            <div class="batch-bar" :class="{ 'batch-idle': !selectedIds.length }">
               <span class="batch-info">已选 {{ selectedIds.length }} 项</span>
-              <button class="op-btn" :disabled="batchBusy" @click="batchSetStatus(1)">启用</button>
-              <button class="op-btn" :disabled="batchBusy" @click="batchSetStatus(0)">禁用</button>
-              <button class="op-btn op-danger" :disabled="batchBusy" @click="batchDelete">删除</button>
+              <button class="op-btn" :disabled="batchBusy || !selectedIds.length" @click="openBatchConfirm('enable')">启用</button>
+              <button class="op-btn" :disabled="batchBusy || !selectedIds.length" @click="openBatchConfirm('disable')">禁用</button>
+              <button class="op-btn" :disabled="batchBusy || !selectedIds.length" @click="openBatchConfirm('resetPwd')">重置密码</button>
+              <button class="op-btn op-danger" :disabled="batchBusy || !selectedIds.length" @click="openBatchConfirm('delete')">删除</button>
             </div>
           </div>
           <p v-if="usersLoading" class="tip">加载中...</p>
@@ -476,7 +489,7 @@
                   <th class="col-check">
                     <input type="checkbox" :checked="isAllSelected" title="全选" @change="toggleAll" />
                   </th>
-                  <th>用户 ID</th>
+                  <th class="col-index">序号</th>
                   <th>用户名</th>
                   <th>手机号</th>
                   <th>角色</th>
@@ -489,14 +502,14 @@
               </thead>
               <tbody>
                 <tr
-                  v-for="u in pagedUsers"
+                  v-for="(u, idx) in filteredUsers"
                   :key="u.id"
                   :class="{ 'row-selected': selectedIds.includes(u.id) }"
                 >
                   <td class="col-check">
                     <input v-model="selectedIds" type="checkbox" :value="u.id" title="选择该用户" />
                   </td>
-                  <td class="uid">{{ u.id }}</td>
+                  <td class="col-index">{{ (userPage - 1) * USER_PAGE_SIZE + idx + 1 }}</td>
                   <td>{{ u.username }}</td>
                   <td>{{ u.phone || '-' }}</td>
                   <td>
@@ -513,14 +526,17 @@
                 </tr>
               </tbody>
             </table>
-            <Pagination
-              v-if="filteredUsers.length > USER_PAGE_SIZE"
-              :page="userPage"
-              :total="filteredUsers.length"
-              :page-size="USER_PAGE_SIZE"
-              style="--pager-color: #00b42a"
-              @change="userPage = $event"
-            />
+            <div class="pager-bar">
+              <Pagination
+                v-if="userTotal > USER_PAGE_SIZE"
+                :page="userPage"
+                :total="userTotal"
+                :page-size="USER_PAGE_SIZE"
+                style="--pager-color: #00b42a"
+                @change="userPage = $event"
+              />
+              <span class="pager-total">共 {{ userTotal }} 条</span>
+            </div>
           </template>
         </template>
 
@@ -848,6 +864,29 @@
         </button>
       </div>
     </div>
+    <!-- 批量操作确认弹窗（绿色主题，呼应用户管理 tab） -->
+    <div v-if="batchConfirmVisible" class="pay-mask" @click.self="batchConfirmVisible = false">
+      <div class="pay-dialog plan-dialog theme-green">
+        <button class="pay-close" title="关闭" @click="batchConfirmVisible = false">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <h2 class="pay-title">{{ batchConfirmTitle }}</h2>
+        <div class="plan-form">
+          <p class="batch-confirm-text">
+            {{ batchConfirmParts.before }}<strong v-if="batchConfirmParts.strong">{{ batchConfirmParts.strong }}</strong>{{ batchConfirmParts.after }}
+          </p>
+          <label v-if="batchConfirmAction === 'resetPwd'" class="plan-field">
+            <span>新密码（留空则统一重置为 {{ DEFAULT_RESET_PWD }}）</span>
+            <input v-model.trim="batchResetPwdInput" type="text" maxlength="32" :placeholder="`默认 ${DEFAULT_RESET_PWD}`" />
+          </label>
+        </div>
+        <button class="plan-save-btn" :class="{ danger: batchConfirmAction === 'delete' }" :disabled="batchBusy" @click="confirmBatch">
+          {{ batchBusy ? '执行中...' : '确定' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -891,6 +930,7 @@ import {
   listUsers,
   updateUser,
   removeUser,
+  resetUserPassword,
   userLogout,
   clearAuth
 } from '../api'
@@ -1406,6 +1446,7 @@ const users = ref([])
 const usersLoading = ref(false)
 const usersError = ref('')
 const userSearch = ref('')
+const phoneSearch = ref('')
 const roleFilter = ref('') // '' 全部 | ADMIN | USER | GUEST
 const roleOptions = [
   { value: '', label: '全部角色' },
@@ -1413,50 +1454,72 @@ const roleOptions = [
   { value: 'USER', label: '用户' },
   { value: 'GUEST', label: '游客' }
 ]
+const statusFilter = ref('') // '' 全部 | '1' 正常 | '0' 禁用
+const statusOptions = [
+  { value: '', label: '全部状态' },
+  { value: '1', label: '正常' },
+  { value: '0', label: '已禁用' }
+]
 const userSort = createSortState()
 
+// 服务端筛选：username/phone 模糊、role/status 精确，后端固定按创建时间倒序返回
+// filteredUsers 仅保留前端排序视图（点表头在当前页内重排）
 const filteredUsers = computed(() => {
   let list = users.value
-  const kw = userSearch.value.toLowerCase()
-  if (kw) {
-    list = list.filter(
-      (u) =>
-        (u.username || '').toLowerCase().includes(kw) ||
-        (u.id || '').toLowerCase().includes(kw) ||
-        (u.phone || '').includes(kw)
-    )
-  }
-  if (roleFilter.value) {
-    list = list.filter((u) => (u.role || 'USER') === roleFilter.value)
-  }
   if (userSort.field.value) {
     list = sortByDate(list, userSort.field.value, userSort.order.value)
   }
   return list
 })
 
-// 用户管理分页（本地切片）
+// 用户管理分页（服务端分页 + 服务端筛选，每页 20 条）
 const USER_PAGE_SIZE = 20
 const userPage = ref(1)
-const pagedUsers = computed(() => {
-  const start = (userPage.value - 1) * USER_PAGE_SIZE
-  return filteredUsers.value.slice(start, start + USER_PAGE_SIZE)
-})
-// 搜索 / 角色筛选 / 排序变化时回到第一页
-watch([userSearch, roleFilter, () => userSort.field.value, () => userSort.order.value], () => {
-  userPage.value = 1
+const userTotal = ref(0) // 服务端总数（/user/list 返回 PageVO{list, total}）
+let userReqSeq = 0 // 请求序号：仅采纳最后一次请求的结果，防翻页与搜索竞态
+
+// 搜索：点击「搜索」按钮 / 输入框回车才发起请求，回到第一页
+function applyUserFilter() {
+  if (userPage.value !== 1) {
+    userPage.value = 1 // 触发翻页 watch 发起请求
+  } else {
+    loadUsers()
+  }
+}
+
+// 翻页：请求对应页数据
+watch(userPage, () => {
+  loadUsers()
 })
 
 async function loadUsers() {
+  const seq = ++userReqSeq
   usersLoading.value = true
   usersError.value = ''
   try {
-    const res = await listUsers({ size: 1000 })
+    const res = await listUsers({
+      page: userPage.value,
+      size: USER_PAGE_SIZE,
+      username: userSearch.value,
+      phone: phoneSearch.value,
+      role: roleFilter.value,
+      status: statusFilter.value
+    })
+    if (seq !== userReqSeq) return // 已有更新的请求，丢弃本次结果
     users.value = res.data?.list || []
+    userTotal.value = res.data?.total || 0
+    // 删除等操作后总数变化，防止页码越界（越界时 clamp 后自动重载）
+    const maxPage = Math.max(1, Math.ceil(userTotal.value / USER_PAGE_SIZE))
+    if (userPage.value > maxPage) {
+      userPage.value = maxPage
+    }
   } catch (e) {
+    if (seq !== userReqSeq) return
     usersError.value = e.message || '加载用户列表失败，请稍后再试'
   } finally {
-    usersLoading.value = false
+    if (seq === userReqSeq) {
+      usersLoading.value = false
+    }
   }
 }
 
@@ -1464,12 +1527,18 @@ async function loadUsers() {
 const selectedIds = ref([])
 const batchBusy = ref(false)
 
+// 全选仅作用于当前页：跨页已选保留，勾选状态按当前页是否全中判断
 const isAllSelected = computed(
-  () => filteredUsers.value.length > 0 && selectedIds.value.length === filteredUsers.value.length
+  () => filteredUsers.value.length > 0 && filteredUsers.value.every((u) => selectedIds.value.includes(u.id))
 )
 
 function toggleAll() {
-  selectedIds.value = isAllSelected.value ? [] : filteredUsers.value.map((u) => u.id)
+  const pageIds = new Set(filteredUsers.value.map((u) => u.id))
+  if (isAllSelected.value) {
+    selectedIds.value = selectedIds.value.filter((id) => !pageIds.has(id))
+  } else {
+    selectedIds.value = [...new Set([...selectedIds.value, ...pageIds])]
+  }
 }
 
 // 批量目标：跳过当前登录账号，防止自锁/自删
@@ -1480,54 +1549,95 @@ function pickTargets() {
     .filter(Boolean)
 }
 
-async function batchSetStatus(status) {
+// ===== 用户批量操作（统一弹窗确认） =====
+// 启用 / 禁用 / 重置密码 / 删除 均先弹窗二次确认，确认后并行执行并统一汇报结果
+const batchConfirmVisible = ref(false)
+const batchConfirmAction = ref('')
+const batchResetPwdInput = ref('')
+
+// 默认重置密码（与后端 UserServiceImpl.DEFAULT_RESET_PASSWORD 保持一致）
+const DEFAULT_RESET_PWD = '123456'
+
+// 弹窗文案带用户名：全部列出，超过 5 个截断为「前5个 等 N 个用户」
+function targetNames(targets) {
+  const names = targets.map((u) => u.username)
+  return names.length > 5 ? `${names.slice(0, 5).join('、')} 等 ${names.length} 个用户` : names.join('、')
+}
+
+// 确认弹窗文案三段式：before + 加粗用户名 + after，避免 v-html 注入风险
+const batchConfirmTitleMap = {
+  enable: '批量启用',
+  disable: '批量禁用',
+  resetPwd: '批量重置密码',
+  delete: '批量删除'
+}
+const batchConfirmTitle = computed(() => batchConfirmTitleMap[batchConfirmAction.value] || '')
+const batchConfirmParts = computed(() => {
+  const targets = pickTargets()
+  const names = targetNames(targets)
+  switch (batchConfirmAction.value) {
+    case 'enable':
+      return { before: '确定启用 ', strong: names, after: ' 吗？' }
+    case 'disable':
+      return { before: '确定禁用 ', strong: names, after: ' 吗？' }
+    case 'resetPwd':
+      return { before: '将为 ', strong: names, after: ' 设置统一的新密码。' }
+    case 'delete':
+      return { before: '确定删除 ', strong: names, after: ' 吗？该操作不可恢复。' }
+    default:
+      return { before: '', strong: '', after: '' }
+  }
+})
+
+function openBatchConfirm(action) {
+  if (!pickTargets().length) {
+    showToast('不能对当前登录账号执行批量操作', 'error')
+    return
+  }
+  batchConfirmAction.value = action
+  batchResetPwdInput.value = ''
+  batchConfirmVisible.value = true
+}
+
+async function confirmBatch() {
+  const action = batchConfirmAction.value
   const targets = pickTargets()
   if (!targets.length) {
-    showToast('不能对当前登录账号执行批量操作', 'error')
+    batchConfirmVisible.value = false
     return
   }
   batchBusy.value = true
   try {
-    const results = await Promise.allSettled(
-      targets.map((u) =>
-        updateUser(u.id, { username: u.username, phone: u.phone, role: u.role, status })
+    let results
+    if (action === 'enable' || action === 'disable') {
+      const status = action === 'enable' ? 1 : 0
+      results = await Promise.allSettled(
+        targets.map((u) => updateUser(u.id, { username: u.username, phone: u.phone, role: u.role, status }))
       )
-    )
+    } else if (action === 'delete') {
+      results = await Promise.allSettled(targets.map((u) => removeUser(u.id)))
+    } else {
+      const pwd = batchResetPwdInput.value || DEFAULT_RESET_PWD
+      results = await Promise.allSettled(targets.map((u) => resetUserPassword(u.id, pwd)))
+    }
     const failed = results.filter((r) => r.status === 'rejected').length
     if (failed) {
       // 优先展示后端返回的失败原因
       const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
       showToast(`${failed} 个用户操作失败${firstReason ? `：${firstReason}` : '，请重试'}`, 'error')
     } else {
-      showToast(`已${status === 1 ? '启用' : '禁用'} ${targets.length} 个用户`, 'success')
+      const pwd = batchResetPwdInput.value || DEFAULT_RESET_PWD
+      const okMsg = {
+        enable: `已启用 ${targets.length} 个用户`,
+        disable: `已禁用 ${targets.length} 个用户`,
+        delete: `已删除 ${targets.length} 个用户`,
+        resetPwd: `已将 ${targets.length} 个用户密码重置为 ${pwd}`
+      }
+      showToast(okMsg[action], 'success')
     }
-    await loadUsers()
+    batchConfirmVisible.value = false
     selectedIds.value = []
-  } finally {
-    batchBusy.value = false
-  }
-}
-
-async function batchDelete() {
-  const targets = pickTargets()
-  if (!targets.length) {
-    showToast('不能对当前登录账号执行批量操作', 'error')
-    return
-  }
-  if (!window.confirm(`确定删除选中的 ${targets.length} 个用户吗？该操作不可恢复。`)) return
-  batchBusy.value = true
-  try {
-    const results = await Promise.allSettled(targets.map((u) => removeUser(u.id)))
-    const failed = results.filter((r) => r.status === 'rejected').length
-    if (failed) {
-      // 优先展示后端返回的失败原因
-      const firstReason = results.find((r) => r.status === 'rejected')?.reason?.message
-      showToast(`${failed} 个用户删除失败${firstReason ? `：${firstReason}` : '，请重试'}`, 'error')
-    } else {
-      showToast(`已删除 ${targets.length} 个用户`, 'success')
-    }
-    await loadUsers()
-    selectedIds.value = []
+    if (action !== 'resetPwd') await loadUsers()
   } finally {
     batchBusy.value = false
   }
@@ -3685,6 +3795,11 @@ onBeforeUnmount(stopPolling)
   gap: 8px;
 }
 
+/* 未选中时整栏弱化，按钮置灰不可点 */
+.batch-idle {
+  opacity: 0.55;
+}
+
 .batch-info {
   font-size: 13px;
   color: #4e5969;
@@ -3910,11 +4025,25 @@ onBeforeUnmount(stopPolling)
   vertical-align: middle;
 }
 
-.uid {
+.col-index {
+  width: 56px;
   font-family: var(--font-num);
   font-size: 12px;
   color: #86909c;
   white-space: nowrap;
+}
+
+.pager-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pager-total {
+  font-size: 12px;
+  color: #86909c;
 }
 
 .time-cell {
@@ -4327,6 +4456,42 @@ onBeforeUnmount(stopPolling)
 .plan-dialog.theme-indigo .plan-field input:focus,
 .plan-dialog.theme-indigo .plan-field textarea:focus {
   border-color: #3446c2;
+}
+
+/* 用户管理（绿色） */
+.plan-dialog.theme-green {
+  --tab-color: #00b42a;
+}
+
+.plan-dialog.theme-green .plan-field input:focus,
+.plan-dialog.theme-green .plan-field textarea:focus {
+  border-color: #00b42a;
+}
+
+.plan-dialog.theme-green .plan-save-btn {
+  background: linear-gradient(135deg, #00b42a, #009a29);
+}
+
+/* 删除确认时按钮转红色语义 */
+.plan-dialog .plan-save-btn.danger {
+  background: linear-gradient(135deg, #f53f3f, #cb2634);
+}
+
+/* 批量确认文案 */
+.batch-confirm-text {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f7f8fa;
+  color: #1f2329;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.batch-confirm-text strong {
+  color: #1d2129;
+  font-weight: 700;
 }
 
 /* ===== 消息发布（玫红主题） ===== */

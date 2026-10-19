@@ -37,7 +37,6 @@ function go(p) {
 
 <template>
   <div class="pager">
-    <span class="pager-total">共 {{ total }} 条</span>
     <div class="pager-pages">
       <button class="pager-btn nav" :disabled="page <= 1" @click="go(page - 1)">‹</button>
       <template v-for="(p, i) in pageList" :key="i">
@@ -55,14 +54,8 @@ function go(p) {
   --pager-color: #3446c2;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
-  padding: 12px 2px 0;
-}
-
-.pager-total {
-  font-size: 12px;
-  color: #86909c;
 }
 
 .pager-pages {

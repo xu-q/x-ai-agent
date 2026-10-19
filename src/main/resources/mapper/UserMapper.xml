@@ -28,4 +28,38 @@
         WHERE deleted = 0
           AND create_time &lt; #{startTime}
     </select>
+
+    <!-- 用户结果映射（显式映射，避免依赖驼峰自动转换配置） -->
+    <resultMap id="UserResultMap" type="com.x.xaiagent.entity.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="phone" property="phone"/>
+        <result column="avatar" property="avatar"/>
+        <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 用户分页列表（不含已删除）：用户名/手机号模糊、角色/状态精确，按创建时间倒序 -->
+    <select id="selectUserPage" resultMap="UserResultMap">
+        SELECT *
+        FROM sys_user
+        WHERE deleted = 0
+        <if test="username != null and username != ''">
+            AND username LIKE CONCAT('%', #{username}, '%')
+        </if>
+        <if test="phone != null and phone != ''">
+            AND phone LIKE CONCAT('%', #{phone}, '%')
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY create_time DESC
+    </select>
 </mapper>
