@@ -28,6 +28,9 @@ public class AlipayProperties {
     /** 异步回调公网地址（本地联调用 ngrok/cpolar 暴露） */
     private String notifyUrl;
 
+    /** 支付宝 OAuth 授权回调地址（需与沙箱/正式应用配置的“授权回调地址”一致，含 /api 上下文） */
+    private String oauthRedirectUrl = "http://localhost:8123/api/login/alipay/callback";
+
     private String format = "json";
 
     private String charset = "UTF-8";

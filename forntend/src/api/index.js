@@ -111,6 +111,32 @@ export function userLogout() {
 }
 
 /**
+ * 支付宝扫码登录 - 获取授权页地址
+ * GET /login/alipay/url?redirect=xxx → R<String>，data 为支付宝授权 URL
+ * 用户在新标签页扫码确认后，后端建立会话并 302 跳回 redirect
+ */
+export function getAlipayLoginUrl(redirect) {
+  return request.get('/login/alipay/url', { params: { redirect } })
+}
+
+/**
+ * 支付宝扫码登录 - 获取内嵌二维码（后端渲染好的 PNG data URL）
+ * GET /login/alipay/qr → R<{ state, authorizeUrl, qrImage }>
+ */
+export function getAlipayLoginQr() {
+  return request.get('/login/alipay/qr')
+}
+
+/**
+ * 支付宝扫码登录 - PC 轮询扫码状态
+ * GET /login/alipay/status?state=xxx → R<{ status: 'PENDING'|'EXPIRED'|'SUCCESS', user? }>
+ * SUCCESS 时后端已在当前会话写入登录态
+ */
+export function getAlipayLoginStatus(state) {
+  return request.get('/login/alipay/status', { params: { state } })
+}
+
+/**
  * 后台管理 - 会话列表
  */
 export function listConversations({ userId = 0, page = 1, size = 1000 } = {}) {

@@ -3,6 +3,7 @@ package com.x.xaiagent.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.x.xaiagent.constant.LoginSource;
 import com.x.xaiagent.constant.RoleConstants;
 import com.x.xaiagent.context.UserContext;
 import com.x.xaiagent.dto.AdminResetPasswordDTO;
@@ -48,6 +49,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         u.setPhone(dto.getPhone());
         u.setRole(StringUtils.hasText(dto.getRole()) ? dto.getRole() : RoleConstants.USER);
         u.setStatus(1);
+        u.setSource(LoginSource.USERNAME.getCode());
         u.setDeleted(0);
         u.setCreateTime(LocalDateTime.now());
         u.setUpdateTime(LocalDateTime.now());
@@ -89,6 +91,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         u.setRole(dto.getRole());
         u.setStatus(1);
+        u.setSource(LoginSource.USERNAME.getCode());
         u.setDeleted(0);
         u.setCreateTime(LocalDateTime.now());
         u.setUpdateTime(LocalDateTime.now());

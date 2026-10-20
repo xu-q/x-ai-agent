@@ -37,6 +37,12 @@ public class User {
     /** 状态：1 启用，0 禁用 */
     private Integer status;
 
+    /** 注册/登录来源：username / alipay / wechat / qq / phone（见 LoginSource） */
+    private String source;
+
+    /** 第三方平台用户唯一标识（支付宝 user_id、微信 openid 等），非三方登录为 null */
+    private String openId;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
